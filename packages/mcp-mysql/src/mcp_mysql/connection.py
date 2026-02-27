@@ -1,4 +1,4 @@
-"""Async MySQL connection manager."""
+"""异步 MySQL 连接管理器。"""
 
 from typing import Any
 
@@ -8,39 +8,39 @@ from mcp_mysql.config import MySQLConfig
 
 
 class MySQLConnection:
-    """Async MySQL database connection manager.
+    """异步 MySQL 数据库连接管理器。
 
-    Handles connection lifecycle, query execution, and error handling
-    using aiomysql for non-blocking I/O operations.
+    使用 aiomysql 处理连接生命周期、查询执行和错误处理，
+    实现非阻塞 I/O 操作。
     """
 
     def __init__(self, config: MySQLConfig | None = None):
-        """Initialize connection manager.
+        """初始化连接管理器。
 
-        Args:
-            config: MySQL configuration. Uses defaults if not provided.
+        参数:
+            config: MySQL 配置。未提供时使用默认值。
         """
         self._config = config or MySQLConfig()
         self._pool: aiomysql.Pool | None = None
 
     @property
     def config(self) -> MySQLConfig:
-        """Get current configuration."""
+        """获取当前配置。"""
         return self._config
 
     @property
     def is_connected(self) -> bool:
-        """Check if connection pool is active."""
+        """检查连接池是否活跃。"""
         return self._pool is not None and not self._pool._closed
 
     async def connect(self, **overrides: Any) -> None:
-        """Establish database connection pool.
+        """建立数据库连接池。
 
-        Args:
-            **overrides: Configuration overrides for this connection.
+        参数:
+            **overrides: 本次连接的配置覆盖项。
 
-        Raises:
-            ConnectionError: If connection fails.
+        异常:
+            ConnectionError: 连接失败时抛出。
         """
         if self.is_connected:
             await self.disconnect()
@@ -48,11 +48,11 @@ class MySQLConnection:
         conn_params = self._config.to_connection_params()
         conn_params.update(overrides)
 
-        # Remove empty database to avoid errors
+        # 移除空数据库名以避免错误
         if not conn_params.get("database"):
             conn_params.pop("database", None)
 
-        # Map config keys to aiomysql parameters
+        # 将配置键映射到 aiomysql 参数
         pool_params = {
             "host": conn_params.get("host", "localhost"),
             "port": conn_params.get("port", 3306),
@@ -68,50 +68,50 @@ class MySQLConnection:
         try:
             self._pool = await aiomysql.create_pool(**pool_params)
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to MySQL: {e}") from e
+            raise ConnectionError(f"连接 MySQL 失败: {e}") from e
 
     async def disconnect(self) -> None:
-        """Close database connection pool."""
+        """关闭数据库连接池。"""
         if self._pool is not None and not self._pool._closed:
             self._pool.close()
             await self._pool.wait_closed()
         self._pool = None
 
     async def execute_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
-        """Execute a SELECT query asynchronously.
+        """异步执行 SELECT 查询。
 
-        Args:
-            query: SQL query string.
-            params: Query parameters for safe parameterized queries.
+        参数:
+            query: SQL 查询字符串。
+            params: 查询参数，用于安全的参数化查询。
 
-        Returns:
-            List of row dictionaries.
+        返回:
+            行字典列表。
 
-        Raises:
-            RuntimeError: If not connected to database.
+        异常:
+            RuntimeError: 未连接数据库时抛出。
         """
         if not self.is_connected:
-            raise RuntimeError("Not connected to database. Call connect() first.")
+            raise RuntimeError("未连接数据库，请先调用 connect()")
 
         async with self._pool.acquire() as conn, conn.cursor(aiomysql.DictCursor) as cursor:
             await cursor.execute(query, params)
             return await cursor.fetchall()
 
     async def execute_update(self, query: str, params: tuple | None = None) -> dict[str, int]:
-        """Execute INSERT, UPDATE, or DELETE query asynchronously.
+        """异步执行 INSERT、UPDATE 或 DELETE 查询。
 
-        Args:
-            query: SQL query string.
-            params: Query parameters.
+        参数:
+            query: SQL 查询字符串。
+            params: 查询参数。
 
-        Returns:
-            Dictionary with affected_rows and last_insert_id.
+        返回:
+            包含 affected_rows 和 last_insert_id 的字典。
 
-        Raises:
-            RuntimeError: If not connected to database.
+        异常:
+            RuntimeError: 未连接数据库时抛出。
         """
         if not self.is_connected:
-            raise RuntimeError("Not connected to database. Call connect() first.")
+            raise RuntimeError("未连接数据库，请先调用 connect()")
 
         async with self._pool.acquire() as conn, conn.cursor() as cursor:
             await cursor.execute(query, params)
@@ -122,39 +122,39 @@ class MySQLConnection:
             }
 
     async def get_databases(self) -> list[str]:
-        """Get list of all databases."""
+        """获取所有数据库列表。"""
         results = await self.execute_query("SHOW DATABASES")
         return [row["Database"] for row in results]
 
     async def get_tables(self) -> list[str]:
-        """Get list of tables in current database."""
+        """获取当前数据库中的表列表。"""
         results = await self.execute_query("SHOW TABLES")
         if not results:
             return []
-        # Key name varies based on database, get first key
+        # 键名因数据库而异，获取第一个键
         key = next(iter(results[0].keys()))
         return [row[key] for row in results]
 
     async def get_table_schema(self, table_name: str) -> list[dict[str, Any]]:
-        """Get schema information for a table.
+        """获取表的结构信息。
 
-        Args:
-            table_name: Name of the table.
+        参数:
+            table_name: 表名。
 
-        Returns:
-            List of column information dictionaries.
+        返回:
+            字段信息字典列表。
         """
         self._validate_table_name(table_name)
         return await self.execute_query(f"DESCRIBE `{table_name}`")
 
     def _validate_table_name(self, table_name: str) -> None:
-        """Validate table name to prevent SQL injection.
+        """验证表名以防止 SQL 注入。
 
-        Args:
-            table_name: Table name to validate.
+        参数:
+            table_name: 要验证的表名。
 
-        Raises:
-            ValueError: If table name is invalid.
+        异常:
+            ValueError: 表名无效时抛出。
         """
         if not table_name or not table_name.replace("_", "").isalnum():
-            raise ValueError(f"Invalid table name: {table_name}")
+            raise ValueError(f"无效的表名: {table_name}")

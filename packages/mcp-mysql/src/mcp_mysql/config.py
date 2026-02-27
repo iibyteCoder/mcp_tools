@@ -1,13 +1,13 @@
-"""MySQL connection configuration."""
+"""MySQL 连接配置。"""
 
 from mcp_base.config import BaseConfig
 
 
 class MySQLConfig(BaseConfig):
-    """MySQL connection configuration.
+    """MySQL 连接配置。
 
-    All settings can be overridden via environment variables
-    with the prefix MYSQL_ (e.g., MYSQL_HOST, MYSQL_PORT).
+    所有设置均可通过 MYSQL_ 前缀的环境变量覆盖
+    （如 MYSQL_HOST、MYSQL_PORT）。
     """
 
     host: str = "localhost"

@@ -7,7 +7,8 @@
 ```text
 mcp_tools/
 ├── packages/           # 独立的 MCP 服务包
-│   └── mcp-mysql/     # MySQL MCP 服务器
+│   ├── mcp-mysql/     # MySQL MCP 服务器
+│   └── mcp-neo4j/     # Neo4j MCP 服务器
 ├── libs/               # 共享库
 │   └── mcp-base/      # 基类和工具函数
 ├── Claude.md           # 开发指南
@@ -19,6 +20,7 @@ mcp_tools/
 | 包名 | 描述 | 状态 |
 | ---- | ---- | ---- |
 | [mcp-mysql](packages/mcp-mysql/README.md) | MySQL 数据库操作 | 已就绪 |
+| [mcp-neo4j](packages/mcp-neo4j/README.md) | Neo4j 图数据库操作 | 已就绪 |
 
 ## 快速开始
 
@@ -34,8 +36,13 @@ mcp_tools/
 cd packages/mcp-mysql
 uv tool install .
 
+# 安装 Neo4j MCP 服务器
+cd packages/mcp-neo4j
+uv tool install .
+
 # 安装后可全局使用
 mcp-mysql
+mcp-neo4j
 ```
 
 ### 使用 uvx 运行（无需安装）

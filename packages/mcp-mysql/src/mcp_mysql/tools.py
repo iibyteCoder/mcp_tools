@@ -1,4 +1,4 @@
-"""Async tool definitions for MySQL MCP server."""
+"""MySQL MCP 服务器的异步工具定义。"""
 
 from typing import Any
 
@@ -9,53 +9,53 @@ from mcp_mysql.connection import MySQLConnection
 
 
 class MySQLTools:
-    """Async MySQL MCP tools implementation.
+    """异步 MySQL MCP 工具实现。
 
-    Each method corresponds to a tool that can be called by MCP clients.
-    All methods are async for non-blocking I/O operations.
+    每个方法对应一个可被 MCP 客户端调用的工具。
+    所有方法均为异步以支持非阻塞 I/O 操作。
     """
 
     def __init__(self, connection: MySQLConnection):
-        """Initialize tools with database connection.
+        """使用数据库连接初始化工具。
 
-        Args:
-            connection: Async MySQL connection manager instance.
+        参数:
+            connection: 异步 MySQL 连接管理器实例。
         """
         self._conn = connection
 
     @staticmethod
     def get_tool_definitions() -> list[Tool]:
-        """Return all tool definitions for registration.
+        """返回所有工具定义用于注册。
 
-        Returns:
-            List of Tool objects.
+        返回:
+            Tool 对象列表。
         """
         return [
             Tool(
                 name="mysql_connect",
-                description="Connect to MySQL database with specified connection parameters",
+                description="使用指定的连接参数连接到 MySQL 数据库",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "host": {
                             "type": "string",
-                            "description": "MySQL server host (default: localhost)",
+                            "description": "MySQL 服务器地址（默认: localhost）",
                         },
                         "port": {
                             "type": "integer",
-                            "description": "MySQL server port (default: 3306)",
+                            "description": "MySQL 服务器端口（默认: 3306）",
                         },
                         "user": {
                             "type": "string",
-                            "description": "MySQL username (default: root)",
+                            "description": "MySQL 用户名（默认: root）",
                         },
                         "password": {
                             "type": "string",
-                            "description": "MySQL password",
+                            "description": "MySQL 密码",
                         },
                         "database": {
                             "type": "string",
-                            "description": "Database name to connect to",
+                            "description": "要连接的数据库名称",
                         },
                     },
                     "required": [],
@@ -63,18 +63,18 @@ class MySQLTools:
             ),
             Tool(
                 name="mysql_disconnect",
-                description="Disconnect from the current MySQL database",
+                description="断开当前 MySQL 数据库连接",
                 inputSchema={"type": "object", "properties": {}},
             ),
             Tool(
                 name="mysql_query",
-                description="Execute a SELECT query on the MySQL database",
+                description="在 MySQL 数据库上执行 SELECT 查询",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The SELECT SQL query to execute",
+                            "description": "要执行的 SELECT SQL 查询语句",
                         },
                     },
                     "required": ["query"],
@@ -82,13 +82,13 @@ class MySQLTools:
             ),
             Tool(
                 name="mysql_execute",
-                description="Execute an INSERT, UPDATE, or DELETE query on the MySQL database",
+                description="在 MySQL 数据库上执行 INSERT、UPDATE 或 DELETE 语句",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The SQL query to execute (INSERT/UPDATE/DELETE)",
+                            "description": "要执行的 SQL 语句（INSERT/UPDATE/DELETE）",
                         },
                     },
                     "required": ["query"],
@@ -96,23 +96,23 @@ class MySQLTools:
             ),
             Tool(
                 name="mysql_list_databases",
-                description="List all available databases on the MySQL server",
+                description="列出 MySQL 服务器上所有可用的数据库",
                 inputSchema={"type": "object", "properties": {}},
             ),
             Tool(
                 name="mysql_list_tables",
-                description="List all tables in the current database",
+                description="列出当前数据库中的所有表",
                 inputSchema={"type": "object", "properties": {}},
             ),
             Tool(
                 name="mysql_describe_table",
-                description="Get the schema/structure of a specific table",
+                description="获取指定表的结构信息",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "table_name": {
                             "type": "string",
-                            "description": "The name of the table to describe",
+                            "description": "要查看结构的表名",
                         },
                     },
                     "required": ["table_name"],
@@ -121,116 +121,116 @@ class MySQLTools:
         ]
 
     async def connect(self, arguments: dict[str, Any]) -> ToolResult:
-        """Connect to MySQL database asynchronously.
+        """异步连接到 MySQL 数据库。
 
-        Args:
-            arguments: Connection parameters (host, port, user, password, database).
+        参数:
+            arguments: 连接参数（host, port, user, password, database）。
 
-        Returns:
-            ToolResult with connection status.
+        返回:
+            包含连接状态的 ToolResult。
         """
         await self._conn.connect(**arguments)
 
         return ToolResult.success(
-            message=f"Connected to MySQL at {self._conn.config.host}:{self._conn.config.port}",
-            data={"database": self._conn.config.database or "none selected"},
+            message=f"已连接到 MySQL 服务器 {self._conn.config.host}:{self._conn.config.port}",
+            data={"database": self._conn.config.database or "未选择数据库"},
         )
 
     async def disconnect(self, _arguments: dict[str, Any]) -> ToolResult:
-        """Disconnect from MySQL database asynchronously.
+        """异步断开 MySQL 数据库连接。
 
-        Args:
-            _arguments: Unused (required for consistent interface).
+        参数:
+            _arguments: 未使用（为保持接口一致性）。
 
-        Returns:
-            ToolResult with disconnect status.
+        返回:
+            包含断开状态的 ToolResult。
         """
         await self._conn.disconnect()
-        return ToolResult.success(message="Disconnected from MySQL")
+        return ToolResult.success(message="已断开 MySQL 连接")
 
     async def query(self, arguments: dict[str, Any]) -> ToolResult:
-        """Execute SELECT query asynchronously.
+        """异步执行 SELECT 查询。
 
-        Args:
-            arguments: Contains 'query' key with SQL string.
+        参数:
+            arguments: 包含 'query' 键的 SQL 字符串。
 
-        Returns:
-            ToolResult with query results.
+        返回:
+            包含查询结果的 ToolResult。
         """
         query = arguments.get("query", "")
         if not query:
-            return ToolResult.error("Query is required")
+            return ToolResult.error("查询语句不能为空")
 
         results = await self._conn.execute_query(query)
         return ToolResult.success(
-            message=f"Query returned {len(results)} rows",
-            data=results,
+            message=f"查询返回 {len(results)} 行",
+            data={"sql": query, "results": results, "row_count": len(results)},
         )
 
     async def execute(self, arguments: dict[str, Any]) -> ToolResult:
-        """Execute INSERT/UPDATE/DELETE query asynchronously.
+        """异步执行 INSERT/UPDATE/DELETE 语句。
 
-        Args:
-            arguments: Contains 'query' key with SQL string.
+        参数:
+            arguments: 包含 'query' 键的 SQL 字符串。
 
-        Returns:
-            ToolResult with execution stats.
+        返回:
+            包含执行统计信息的 ToolResult。
         """
         query = arguments.get("query", "")
         if not query:
-            return ToolResult.error("Query is required")
+            return ToolResult.error("查询语句不能为空")
 
         result = await self._conn.execute_update(query)
         return ToolResult.success(
-            message=f"Affected {result['affected_rows']} rows",
-            data=result,
+            message=f"影响 {result['affected_rows']} 行",
+            data={"sql": query, **result},
         )
 
     async def list_databases(self, _arguments: dict[str, Any]) -> ToolResult:
-        """List all databases asynchronously.
+        """异步列出所有数据库。
 
-        Args:
-            _arguments: Unused.
+        参数:
+            _arguments: 未使用。
 
-        Returns:
-            ToolResult with database list.
+        返回:
+            包含数据库列表的 ToolResult。
         """
         databases = await self._conn.get_databases()
         return ToolResult.success(
-            message=f"Found {len(databases)} databases",
+            message=f"找到 {len(databases)} 个数据库",
             data={"databases": databases, "count": len(databases)},
         )
 
     async def list_tables(self, _arguments: dict[str, Any]) -> ToolResult:
-        """List all tables in current database asynchronously.
+        """异步列出当前数据库中的所有表。
 
-        Args:
-            _arguments: Unused.
+        参数:
+            _arguments: 未使用。
 
-        Returns:
-            ToolResult with table list.
+        返回:
+            包含表列表的 ToolResult。
         """
         tables = await self._conn.get_tables()
         return ToolResult.success(
-            message=f"Found {len(tables)} tables",
+            message=f"找到 {len(tables)} 个表",
             data={"tables": tables, "count": len(tables)},
         )
 
     async def describe_table(self, arguments: dict[str, Any]) -> ToolResult:
-        """Describe table structure asynchronously.
+        """异步获取表结构信息。
 
-        Args:
-            arguments: Contains 'table_name' key.
+        参数:
+            arguments: 包含 'table_name' 键。
 
-        Returns:
-            ToolResult with table schema.
+        返回:
+            包含表结构的 ToolResult。
         """
         table_name = arguments.get("table_name", "")
         if not table_name:
-            return ToolResult.error("table_name is required")
+            return ToolResult.error("表名不能为空")
 
         schema = await self._conn.get_table_schema(table_name)
         return ToolResult.success(
-            message=f"Table '{table_name}' has {len(schema)} columns",
+            message=f"表 '{table_name}' 有 {len(schema)} 个字段",
             data={"table": table_name, "schema": schema},
         )

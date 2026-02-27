@@ -1,7 +1,7 @@
 [project]
 name = "mcp-tools"
 version = "0.0.0"
-description = "MCP Tools - A collection of MCP servers"
+description = "MCP 工具集 - MCP 服务器集合"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]

@@ -1,4 +1,4 @@
-"""MCP Base - Shared utilities for MCP servers."""
+"""MCP Base - MCP 服务器共享工具库。"""
 
 from mcp_base.config import BaseConfig
 from mcp_base.server import BaseMCPServer

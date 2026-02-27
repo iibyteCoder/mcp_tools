@@ -1,4 +1,4 @@
-"""Type definitions for MCP servers."""
+"""MCP 服务器类型定义。"""
 
 from dataclasses import dataclass
 from enum import Enum
@@ -6,7 +6,7 @@ from typing import Any
 
 
 class ToolStatus(str, Enum):
-    """Status of tool execution."""
+    """工具执行状态。"""
 
     SUCCESS = "success"
     ERROR = "error"
@@ -14,14 +14,14 @@ class ToolStatus(str, Enum):
 
 @dataclass
 class ToolResult:
-    """Standard result format for tool execution."""
+    """工具执行的标准结果格式。"""
 
     status: ToolStatus
     message: str = ""
     data: Any = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
+        """转换为字典以便 JSON 序列化。"""
         result: dict[str, Any] = {"status": self.status.value}
         if self.message:
             result["message"] = self.message
@@ -31,10 +31,10 @@ class ToolResult:
 
     @classmethod
     def success(cls, message: str = "", data: Any = None) -> "ToolResult":
-        """Create a success result."""
+        """创建成功结果。"""
         return cls(status=ToolStatus.SUCCESS, message=message, data=data)
 
     @classmethod
     def error(cls, message: str) -> "ToolResult":
-        """Create an error result."""
+        """创建错误结果。"""
         return cls(status=ToolStatus.ERROR, message=message)

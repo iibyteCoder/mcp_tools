@@ -1,7 +1,7 @@
 [project]
 name = "mcp-mysql"
 version = "0.1.0"
-description = "MCP server for MySQL database operations"
+description = "MySQL 数据库操作 MCP 服务器"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -1,10 +1,10 @@
-"""CLI entry point for Neo4j MCP server."""
+"""Neo4j MCP 服务器命令行入口。"""
 
 import asyncio
 
 
 def main() -> None:
-    """Main entry point for the MCP server."""
+    """MCP 服务器主入口。"""
     from mcp_neo4j.server import Neo4jServer
 
     server = Neo4jServer()

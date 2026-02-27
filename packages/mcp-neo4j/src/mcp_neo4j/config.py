@@ -1,13 +1,13 @@
-"""Neo4j connection configuration."""
+"""Neo4j 连接配置。"""
 
 from mcp_base.config import BaseConfig
 
 
 class Neo4jConfig(BaseConfig):
-    """Neo4j connection configuration.
+    """Neo4j 连接配置。
 
-    All settings can be overridden via environment variables
-    with the prefix NEO4J_ (e.g., NEO4J_URI, NEO4J_USER).
+    所有设置均可通过 NEO4J_ 前缀的环境变量覆盖
+    （如 NEO4J_URI、NEO4J_USER）。
     """
 
     uri: str = "bolt://localhost:7687"

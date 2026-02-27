@@ -1,10 +1,10 @@
-"""CLI entry point for MySQL MCP server."""
+"""MySQL MCP 服务器命令行入口。"""
 
 import asyncio
 
 
 def main() -> None:
-    """Main entry point for the MCP server."""
+    """MCP 服务器主入口。"""
     from mcp_mysql.server import MySQLServer
 
     server = MySQLServer()

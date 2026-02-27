@@ -1,4 +1,4 @@
-"""Async Neo4j connection manager."""
+"""异步 Neo4j 连接管理器。"""
 
 from typing import Any
 
@@ -8,39 +8,39 @@ from mcp_neo4j.config import Neo4jConfig
 
 
 class Neo4jConnection:
-    """Async Neo4j database connection manager.
+    """异步 Neo4j 数据库连接管理器。
 
-    Handles connection lifecycle, query execution, and error handling
-    using neo4j async driver for non-blocking I/O operations.
+    使用 neo4j 官方异步驱动处理连接生命周期、查询执行和错误处理，
+    实现非阻塞 I/O 操作。
     """
 
     def __init__(self, config: Neo4jConfig | None = None):
-        """Initialize connection manager.
+        """初始化连接管理器。
 
-        Args:
-            config: Neo4j configuration. Uses defaults if not provided.
+        参数:
+            config: Neo4j 配置。未提供时使用默认值。
         """
         self._config = config or Neo4jConfig()
         self._driver: AsyncDriver | None = None
 
     @property
     def config(self) -> Neo4jConfig:
-        """Get current configuration."""
+        """获取当前配置。"""
         return self._config
 
     @property
     def is_connected(self) -> bool:
-        """Check if driver is active."""
+        """检查驱动是否活跃。"""
         return self._driver is not None
 
     async def connect(self, **overrides: Any) -> None:
-        """Establish database connection.
+        """建立数据库连接。
 
-        Args:
-            **overrides: Configuration overrides for this connection.
+        参数:
+            **overrides: 本次连接的配置覆盖项。
 
-        Raises:
-            ConnectionError: If connection fails.
+        异常:
+            ConnectionError: 连接失败时抛出。
         """
         if self.is_connected:
             await self.disconnect()
@@ -61,33 +61,33 @@ class Neo4jConnection:
                 max_connection_pool_size=conn_params.get("max_connection_pool_size", 50),
                 connection_timeout=conn_params.get("connection_timeout", 30),
             )
-            # Verify connection
+            # 验证连接
             await self._driver.verify_connectivity()
         except Exception as e:
             self._driver = None
-            raise ConnectionError(f"Failed to connect to Neo4j: {e}") from e
+            raise ConnectionError(f"连接 Neo4j 失败: {e}") from e
 
     async def disconnect(self) -> None:
-        """Close database connection."""
+        """关闭数据库连接。"""
         if self._driver is not None:
             await self._driver.close()
         self._driver = None
 
     async def execute_query(self, query: str, parameters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """Execute a Cypher query asynchronously.
+        """异步执行 Cypher 查询。
 
-        Args:
-            query: Cypher query string.
-            parameters: Query parameters.
+        参数:
+            query: Cypher 查询字符串。
+            parameters: 查询参数。
 
-        Returns:
-            List of record dictionaries.
+        返回:
+            记录字典列表。
 
-        Raises:
-            RuntimeError: If not connected to database.
+        异常:
+            RuntimeError: 未连接数据库时抛出。
         """
         if not self.is_connected:
-            raise RuntimeError("Not connected to database. Call connect() first.")
+            raise RuntimeError("未连接数据库，请先调用 connect()")
 
         async with self._driver.session(database=self._config.database) as session:
             result = await session.run(query, parameters or {})
@@ -95,20 +95,20 @@ class Neo4jConnection:
             return records
 
     async def execute_write(self, query: str, parameters: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Execute a write query (CREATE, MERGE, DELETE, SET) asynchronously.
+        """异步执行写入查询（CREATE、MERGE、DELETE、SET）。
 
-        Args:
-            query: Cypher query string.
-            parameters: Query parameters.
+        参数:
+            query: Cypher 查询字符串。
+            parameters: 查询参数。
 
-        Returns:
-            Dictionary with summary information.
+        返回:
+            包含摘要信息的字典。
 
-        Raises:
-            RuntimeError: If not connected to database.
+        异常:
+            RuntimeError: 未连接数据库时抛出。
         """
         if not self.is_connected:
-            raise RuntimeError("Not connected to database. Call connect() first.")
+            raise RuntimeError("未连接数据库，请先调用 connect()")
 
         async with self._driver.session(database=self._config.database) as session:
             result = await session.run(query, parameters or {})
@@ -124,28 +124,28 @@ class Neo4jConnection:
             }
 
     async def get_labels(self) -> list[str]:
-        """Get list of all node labels in the database."""
+        """获取数据库中所有节点标签列表。"""
         results = await self.execute_query("CALL db.labels() YIELD label RETURN label")
         return [r["label"] for r in results]
 
     async def get_relationship_types(self) -> list[str]:
-        """Get list of all relationship types in the database."""
+        """获取数据库中所有关系类型列表。"""
         results = await self.execute_query("CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType")
         return [r["relationshipType"] for r in results]
 
     async def get_property_keys(self) -> list[str]:
-        """Get list of all property keys in the database."""
+        """获取数据库中所有属性键列表。"""
         results = await self.execute_query("CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey")
         return [r["propertyKey"] for r in results]
 
     async def get_node_schema(self, label: str) -> list[dict[str, Any]]:
-        """Get schema information for nodes with a specific label.
+        """获取指定标签节点的结构信息。
 
-        Args:
-            label: Node label to inspect.
+        参数:
+            label: 要查看的节点标签。
 
-        Returns:
-            List of property information.
+        返回:
+            属性信息列表。
         """
         self._validate_identifier(label)
         results = await self.execute_query(
@@ -155,20 +155,20 @@ class Neo4jConnection:
         return results
 
     async def get_database_info(self) -> dict[str, Any]:
-        """Get database information."""
+        """获取数据库信息。"""
         results = await self.execute_query("CALL db.info() YIELD name, id RETURN name, id")
         if results:
             return results[0]
         return {}
 
     def _validate_identifier(self, identifier: str) -> None:
-        """Validate identifier to prevent Cypher injection.
+        """验证标识符以防止 Cypher 注入。
 
-        Args:
-            identifier: Identifier to validate.
+        参数:
+            identifier: 要验证的标识符。
 
-        Raises:
-            ValueError: If identifier is invalid.
+        异常:
+            ValueError: 标识符无效时抛出。
         """
         if not identifier or not identifier.replace("_", "").isalnum():
-            raise ValueError(f"Invalid identifier: {identifier}")
+            raise ValueError(f"无效的标识符: {identifier}")

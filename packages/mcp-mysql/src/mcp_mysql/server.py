@@ -1,4 +1,4 @@
-"""Async MySQL MCP Server implementation."""
+"""异步 MySQL MCP 服务器实现。"""
 
 from typing import Any
 
@@ -12,21 +12,21 @@ from mcp_mysql.tools import MySQLTools
 
 
 class MySQLServer(BaseMCPServer):
-    """Async MCP Server for MySQL database operations.
+    """异步 MySQL 数据库操作 MCP 服务器。
 
-    Provides tools for:
-    - Connecting/disconnecting from MySQL
-    - Executing queries
-    - Inspecting database schema
+    提供以下工具:
+    - 连接/断开 MySQL 数据库
+    - 执行查询
+    - 查看数据库结构
 
-    All operations are async for better performance.
+    所有操作均为异步以获得更好的性能。
     """
 
     def __init__(self, config: MySQLConfig | None = None):
-        """Initialize MySQL MCP server.
+        """初始化 MySQL MCP 服务器。
 
-        Args:
-            config: MySQL configuration. Uses defaults/env if not provided.
+        参数:
+            config: MySQL 配置。未提供时使用默认值/环境变量。
         """
         super().__init__(name="mcp-mysql", version="0.1.0")
         self._config = config or MySQLConfig()
@@ -34,18 +34,18 @@ class MySQLServer(BaseMCPServer):
         self._tools = MySQLTools(self._connection)
 
     async def list_tools(self) -> list[Tool]:
-        """Return available MySQL tools."""
+        """返回可用的 MySQL 工具。"""
         return MySQLTools.get_tool_definitions()
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a tool by name asynchronously.
+        """根据名称异步执行工具。
 
-        Args:
-            name: Tool name to execute.
-            arguments: Tool arguments.
+        参数:
+            name: 要执行的工具名称。
+            arguments: 工具参数。
 
-        Returns:
-            ToolResult with execution outcome.
+        返回:
+            包含执行结果的 ToolResult。
         """
         tool_handlers = {
             "mysql_connect": self._tools.connect,
@@ -59,6 +59,6 @@ class MySQLServer(BaseMCPServer):
 
         handler = tool_handlers.get(name)
         if handler is None:
-            return ToolResult.error(f"Unknown tool: {name}")
+            return ToolResult.error(f"未知工具: {name}")
 
         return await handler(arguments)
