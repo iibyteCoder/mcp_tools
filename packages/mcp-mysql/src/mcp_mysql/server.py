@@ -12,21 +12,22 @@ from mcp_mysql.tools import MySQLTools
 
 
 class MySQLServer(BaseMCPServer):
-    """异步 MySQL 数据库操作 MCP 服务器。
+    """异步 MySQL 数据库操作 MCP 服务器.
 
     提供以下工具:
     - 连接/断开 MySQL 数据库
-    - 执行查询
+    - 查询连接状态
+    - 执行查询 (自动分页)
     - 查看数据库结构
 
-    所有操作均为异步以获得更好的性能。
+    所有操作均为异步以获得更好的性能.
     """
 
     def __init__(self, config: MySQLConfig | None = None):
-        """初始化 MySQL MCP 服务器。
+        """初始化 MySQL MCP 服务器.
 
         参数:
-            config: MySQL 配置。未提供时使用默认值/环境变量。
+            config: MySQL 配置. 未提供时使用默认值/环境变量.
         """
         super().__init__(name="mcp-mysql", version="0.1.0")
         self._config = config or MySQLConfig()
@@ -50,6 +51,7 @@ class MySQLServer(BaseMCPServer):
         tool_handlers = {
             "mysql_connect": self._tools.connect,
             "mysql_disconnect": self._tools.disconnect,
+            "mysql_status": self._tools.status,
             "mysql_query": self._tools.query,
             "mysql_execute": self._tools.execute,
             "mysql_list_databases": self._tools.list_databases,

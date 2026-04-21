@@ -1,13 +1,15 @@
-"""Neo4j 连接配置。"""
+"""Neo4j 连接配置."""
+
+from typing import Any
 
 from mcp_base.config import BaseConfig
 
 
 class Neo4jConfig(BaseConfig):
-    """Neo4j 连接配置。
+    """Neo4j 连接配置.
 
     所有设置均可通过 NEO4J_ 前缀的环境变量覆盖
-    （如 NEO4J_URI、NEO4J_USER）。
+    (如 NEO4J_URI, NEO4J_USER).
     """
 
     uri: str = "bolt://localhost:7687"
@@ -20,3 +22,12 @@ class Neo4jConfig(BaseConfig):
 
     class Config:
         env_prefix = "NEO4J_"
+
+    def safe_info(self) -> dict[str, Any]:
+        """返回遮蔽密码的连接信息字典."""
+        return {
+            "uri": self.uri,
+            "user": self.user,
+            "password": "****" if self.password else "",
+            "database": self.database,
+        }

@@ -12,21 +12,22 @@ from mcp_neo4j.tools import Neo4jTools
 
 
 class Neo4jServer(BaseMCPServer):
-    """异步 Neo4j 数据库操作 MCP 服务器。
+    """异步 Neo4j 数据库操作 MCP 服务器.
 
     提供以下工具:
     - 连接/断开 Neo4j 数据库
-    - 执行 Cypher 查询
-    - 查看图结构（标签、关系、属性）
+    - 查询连接状态
+    - 执行 Cypher 查询 (自动分页)
+    - 查看图结构 (标签, 关系, 属性)
 
-    所有操作均为异步以获得更好的性能。
+    所有操作均为异步以获得更好的性能.
     """
 
     def __init__(self, config: Neo4jConfig | None = None):
-        """初始化 Neo4j MCP 服务器。
+        """初始化 Neo4j MCP 服务器.
 
         参数:
-            config: Neo4j 配置。未提供时使用默认值/环境变量。
+            config: Neo4j 配置. 未提供时使用默认值/环境变量.
         """
         super().__init__(name="mcp-neo4j", version="0.1.0")
         self._config = config or Neo4jConfig()
@@ -50,6 +51,7 @@ class Neo4jServer(BaseMCPServer):
         tool_handlers = {
             "neo4j_connect": self._tools.connect,
             "neo4j_disconnect": self._tools.disconnect,
+            "neo4j_status": self._tools.status,
             "neo4j_query": self._tools.query,
             "neo4j_execute": self._tools.execute,
             "neo4j_list_labels": self._tools.list_labels,

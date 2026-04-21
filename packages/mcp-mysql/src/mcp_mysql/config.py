@@ -1,13 +1,15 @@
-"""MySQL 连接配置。"""
+"""MySQL 连接配置."""
+
+from typing import Any
 
 from mcp_base.config import BaseConfig
 
 
 class MySQLConfig(BaseConfig):
-    """MySQL 连接配置。
+    """MySQL 连接配置.
 
     所有设置均可通过 MYSQL_ 前缀的环境变量覆盖
-    （如 MYSQL_HOST、MYSQL_PORT）。
+    (如 MYSQL_HOST, MYSQL_PORT).
     """
 
     host: str = "localhost"
@@ -22,3 +24,14 @@ class MySQLConfig(BaseConfig):
 
     class Config:
         env_prefix = "MYSQL_"
+
+    def safe_info(self) -> dict[str, Any]:
+        """返回遮蔽密码的连接信息字典."""
+        return {
+            "host": self.host,
+            "port": self.port,
+            "user": self.user,
+            "password": "****" if self.password else "",
+            "database": self.database or "(none)",
+            "charset": self.charset,
+        }

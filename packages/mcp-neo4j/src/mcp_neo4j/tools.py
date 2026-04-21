@@ -1,35 +1,26 @@
-"""Neo4j MCP 服务器的异步工具定义。"""
+"""Neo4j MCP 服务器的异步工具定义."""
 
 from typing import Any
 
 from mcp.types import Tool
 
-from mcp_base.types import ToolResult
+from mcp_base.types import PaginationParams, ToolResult
 from mcp_neo4j.connection import Neo4jConnection
 
 
 class Neo4jTools:
-    """异步 Neo4j MCP 工具实现。
+    """异步 Neo4j MCP 工具实现.
 
-    每个方法对应一个可被 MCP 客户端调用的工具。
-    所有方法均为异步以支持非阻塞 I/O 操作。
+    每个方法对应一个可被 MCP 客户端调用的工具.
+    所有方法均为异步以支持非阻塞 I/O 操作.
     """
 
     def __init__(self, connection: Neo4jConnection):
-        """使用数据库连接初始化工具。
-
-        参数:
-            connection: 异步 Neo4j 连接管理器实例。
-        """
         self._conn = connection
 
     @staticmethod
     def get_tool_definitions() -> list[Tool]:
-        """返回所有工具定义用于注册。
-
-        返回:
-            Tool 对象列表。
-        """
+        """返回所有工具定义用于注册."""
         return [
             Tool(
                 name="neo4j_connect",
@@ -39,11 +30,11 @@ class Neo4jTools:
                     "properties": {
                         "uri": {
                             "type": "string",
-                            "description": "Neo4j 服务器 URI（默认: bolt://localhost:7687）",
+                            "description": "Neo4j 服务器 URI (默认: bolt://localhost:7687)",
                         },
                         "user": {
                             "type": "string",
-                            "description": "Neo4j 用户名（默认: neo4j）",
+                            "description": "Neo4j 用户名 (默认: neo4j)",
                         },
                         "password": {
                             "type": "string",
@@ -51,7 +42,7 @@ class Neo4jTools:
                         },
                         "database": {
                             "type": "string",
-                            "description": "数据库名称（默认: neo4j）",
+                            "description": "数据库名称 (默认: neo4j)",
                         },
                     },
                     "required": [],
@@ -63,8 +54,18 @@ class Neo4jTools:
                 inputSchema={"type": "object", "properties": {}},
             ),
             Tool(
+                name="neo4j_status",
+                description="获取 Neo4j 连接状态, 服务器版本和连接池信息",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            Tool(
                 name="neo4j_query",
-                description="在 Neo4j 数据库上执行 Cypher 只读查询（MATCH）",
+                description=(
+                    "在 Neo4j 上执行 Cypher 只读查询 (MATCH). "
+                    "结果自动分页 (默认每页 50 行). "
+                    "page: 页码, 从 1 开始; page_size: 每页行数 (1~500, 默认 50). "
+                    "当 has_more=true 时表示还有更多数据, 传入 page+1 获取下一页."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -74,7 +75,15 @@ class Neo4jTools:
                         },
                         "parameters": {
                             "type": "object",
-                            "description": "查询参数（可选）",
+                            "description": "查询参数 (可选)",
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "页码, 从 1 开始 (默认: 1)",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "每页行数, 1~500 (默认: 50)",
                         },
                     },
                     "required": ["query"],
@@ -82,7 +91,7 @@ class Neo4jTools:
             ),
             Tool(
                 name="neo4j_execute",
-                description="在 Neo4j 数据库上执行写入操作（CREATE、MERGE、DELETE、SET）",
+                description="在 Neo4j 数据库上执行写入操作 (CREATE, MERGE, DELETE, SET)",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -92,7 +101,7 @@ class Neo4jTools:
                         },
                         "parameters": {
                             "type": "object",
-                            "description": "查询参数（可选）",
+                            "description": "查询参数 (可选)",
                         },
                     },
                     "required": ["query"],
@@ -129,63 +138,79 @@ class Neo4jTools:
             ),
         ]
 
+    # ── 连接管理 ──
+
     async def connect(self, arguments: dict[str, Any]) -> ToolResult:
-        """异步连接到 Neo4j 数据库。
-
-        参数:
-            arguments: 连接参数（uri, user, password, database）。
-
-        返回:
-            包含连接状态的 ToolResult。
-        """
+        """连接到 Neo4j 数据库."""
         await self._conn.connect(**arguments)
-
         return ToolResult.success(
             message=f"已连接到 Neo4j 服务器 {self._conn.config.uri}",
             data={"database": self._conn.config.database},
         )
 
     async def disconnect(self, _arguments: dict[str, Any]) -> ToolResult:
-        """异步断开 Neo4j 数据库连接。
-
-        参数:
-            _arguments: 未使用（为保持接口一致性）。
-
-        返回:
-            包含断开状态的 ToolResult。
-        """
+        """断开 Neo4j 数据库连接."""
         await self._conn.disconnect()
         return ToolResult.success(message="已断开 Neo4j 连接")
 
+    # ── 状态诊断 ──
+
+    async def status(self, _arguments: dict[str, Any]) -> ToolResult:
+        """获取连接状态, 服务器版本和连接池信息."""
+        connected = self._conn.is_connected
+        data: dict[str, Any] = {
+            "connected": connected,
+            "config": self._conn.config.safe_info(),
+        }
+
+        if connected:
+            data["server_info"] = await self._conn.get_server_info()
+            data["pool_status"] = self._conn.get_pool_status()
+
+        return ToolResult.success(
+            message="Neo4j 已连接" if connected else "Neo4j 未连接",
+            data=data,
+        )
+
+    # ── 查询执行 ──
+
     async def query(self, arguments: dict[str, Any]) -> ToolResult:
-        """异步执行 Cypher 查询。
-
-        参数:
-            arguments: 包含 'query' 键的 Cypher 字符串和可选的 'parameters'。
-
-        返回:
-            包含查询结果的 ToolResult。
-        """
+        """执行分页 Cypher 查询."""
         query = arguments.get("query", "")
         if not query:
             return ToolResult.error("查询语句不能为空")
 
         parameters = arguments.get("parameters")
-        results = await self._conn.execute_query(query, parameters)
-        return ToolResult.success(
-            message=f"查询返回 {len(results)} 条记录",
-            data={"cypher": query, "parameters": parameters, "results": results, "record_count": len(results)},
+        pag = PaginationParams.from_args(arguments)
+
+        results = await self._conn.execute_query(
+            query,
+            parameters,
+            skip=pag.offset,
+            limit=pag.fetch_limit,
         )
 
+        has_more = len(results) > pag.page_size
+        rows = results[: pag.page_size]
+
+        if has_more:
+            message = f"第 {pag.page} 页, 返回 {len(rows)} 条记录, 还有更多数据. 传入 page={pag.page + 1} 获取下一页"
+        else:
+            message = f"第 {pag.page} 页, 返回 {len(rows)} 条记录, 已无更多数据"
+
+        data: dict[str, Any] = {
+            "rows": rows,
+            "page": pag.page,
+            "page_size": pag.page_size,
+            "has_more": has_more,
+        }
+        if has_more:
+            data["next_page"] = pag.page + 1
+
+        return ToolResult.success(message=message, data=data)
+
     async def execute(self, arguments: dict[str, Any]) -> ToolResult:
-        """异步执行写入查询。
-
-        参数:
-            arguments: 包含 'query' 键的 Cypher 字符串和可选的 'parameters'。
-
-        返回:
-            包含执行统计信息的 ToolResult。
-        """
+        """执行写入查询."""
         query = arguments.get("query", "")
         if not query:
             return ToolResult.error("查询语句不能为空")
@@ -197,15 +222,10 @@ class Neo4jTools:
             data={"cypher": query, "parameters": parameters, **result},
         )
 
+    # ── Schema 查询 ──
+
     async def list_labels(self, _arguments: dict[str, Any]) -> ToolResult:
-        """异步列出所有节点标签。
-
-        参数:
-            _arguments: 未使用。
-
-        返回:
-            包含标签列表的 ToolResult。
-        """
+        """列出所有节点标签."""
         labels = await self._conn.get_labels()
         return ToolResult.success(
             message=f"找到 {len(labels)} 个标签",
@@ -213,14 +233,7 @@ class Neo4jTools:
         )
 
     async def list_relationship_types(self, _arguments: dict[str, Any]) -> ToolResult:
-        """异步列出所有关系类型。
-
-        参数:
-            _arguments: 未使用。
-
-        返回:
-            包含关系类型列表的 ToolResult。
-        """
+        """列出所有关系类型."""
         rel_types = await self._conn.get_relationship_types()
         return ToolResult.success(
             message=f"找到 {len(rel_types)} 种关系类型",
@@ -228,14 +241,7 @@ class Neo4jTools:
         )
 
     async def list_properties(self, _arguments: dict[str, Any]) -> ToolResult:
-        """异步列出所有属性键。
-
-        参数:
-            _arguments: 未使用。
-
-        返回:
-            包含属性键列表的 ToolResult。
-        """
+        """列出所有属性键."""
         properties = await self._conn.get_property_keys()
         return ToolResult.success(
             message=f"找到 {len(properties)} 个属性键",
@@ -243,14 +249,7 @@ class Neo4jTools:
         )
 
     async def describe_label(self, arguments: dict[str, Any]) -> ToolResult:
-        """异步获取节点标签结构。
-
-        参数:
-            arguments: 包含 'label' 键。
-
-        返回:
-            包含标签结构的 ToolResult。
-        """
+        """获取节点标签结构."""
         label = arguments.get("label", "")
         if not label:
             return ToolResult.error("标签名不能为空")
