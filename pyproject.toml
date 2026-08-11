@@ -33,7 +33,7 @@ select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mcp_base", "mcp_mysql", "mcp_neo4j"]
+known-first-party = ["mcp_base", "mcp_minio", "mcp_mysql", "mcp_neo4j", "mcp_redis"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -46,5 +46,5 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["mcp.*", "aiomysql", "neo4j", "pydantic_settings"]
+module = ["mcp.*", "aiomysql", "minio", "neo4j", "pydantic_settings", "redis"]
 ignore_missing_imports = true
