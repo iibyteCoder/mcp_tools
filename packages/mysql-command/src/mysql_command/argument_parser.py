@@ -61,8 +61,8 @@ def build_parser() -> CliArgumentParser:
     """Build the static command tree without contacting any external service."""
 
     parser = CliArgumentParser(
-        prog="db-mysql-agent",
-        description="Agent-first JSON-only MySQL command line foundation.",
+        prog="db-mysql",
+        description="JSON-only MySQL command line foundation.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="_route_group")

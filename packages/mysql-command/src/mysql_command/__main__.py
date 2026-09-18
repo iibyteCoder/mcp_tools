@@ -1,4 +1,4 @@
-"""Run the ``db-mysql-agent`` command as a module."""
+"""Run the ``db-mysql`` command as a module."""
 
 from mysql_command.cli import main
 

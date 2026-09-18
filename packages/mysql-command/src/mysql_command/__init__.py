@@ -1,4 +1,4 @@
-"""Agent-first, JSON-only MySQL command line foundation."""
+"""JSON-only MySQL command line foundation."""
 
 __version__ = "0.1.0"
 

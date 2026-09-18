@@ -1,4 +1,4 @@
-"""Process entry point for the JSON-only agent-first MySQL CLI."""
+"""Process entry point for the JSON-only MySQL CLI."""
 
 from __future__ import annotations
 

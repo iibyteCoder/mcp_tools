@@ -1,14 +1,14 @@
 [project]
-name = "mysql-agent-cli"
+name = "mysql-cli"
 version = "0.1.0"
-description = "JSON-only agent-first MySQL command line foundation"
+description = "JSON-only MySQL command line foundation"
 requires-python = ">=3.10"
 dependencies = [
     "mysql-client",
 ]
 
 [project.scripts]
-db-mysql-agent = "mysql_command.cli:main"
+db-mysql = "mysql_command.cli:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,4 +1,4 @@
-"""Process-level contract tests for ``db-mysql-agent``."""
+"""Process-level contract tests for ``db-mysql``."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def test_version_is_fast_and_quiet(cli_environment: dict[str, str]) -> None:
     result = run_cli(cli_environment, "--version")
 
     assert result.returncode == 0
-    assert result.stdout == "db-mysql-agent 0.1.0\n"
+    assert result.stdout == "db-mysql 0.1.0\n"
     assert result.stderr == ""
 
 

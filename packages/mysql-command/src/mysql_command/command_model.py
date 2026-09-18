@@ -1,4 +1,4 @@
-"""Typed command and input models for the agent-first CLI."""
+"""Typed command and input models for the MySQL CLI."""
 
 from __future__ import annotations
 

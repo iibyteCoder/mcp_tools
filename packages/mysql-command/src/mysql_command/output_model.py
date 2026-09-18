@@ -1,4 +1,4 @@
-"""Stable JSON envelope models emitted by the agent-first CLI."""
+"""Stable JSON envelope models emitted by the MySQL CLI."""
 
 from __future__ import annotations
 
