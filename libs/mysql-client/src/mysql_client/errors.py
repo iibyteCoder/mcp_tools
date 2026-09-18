@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from mysql_client.enums import ErrorCode, ExitCode
-from mysql_client.models import ErrorReport
+from mysql_client.enums import ErrorCode
+from mysql_client.result_models import ErrorReport
 
 
 class ClientError(Exception):
-    """Base class for all expected MySQL Agent CLI failures."""
+    """Base class for all expected MySQL client failures."""
 
     code: ClassVar[ErrorCode] = ErrorCode.INTERNAL_ERROR
 
@@ -91,24 +91,6 @@ class InternalError(ClientError):
     code: ClassVar[ErrorCode] = ErrorCode.INTERNAL_ERROR
 
 
-def exit_code_for_error(code: ErrorCode) -> ExitCode:
-    """Map stable error codes to stable process exit codes."""
-
-    if code is ErrorCode.INVALID_ARGUMENT or code is ErrorCode.INVALID_SQL or code is ErrorCode.UNSUPPORTED_SQL:
-        return ExitCode.INVALID_ARGUMENT
-    if code is ErrorCode.CONNECTION_FAILED or code is ErrorCode.DATABASE_NOT_FOUND:
-        return ExitCode.CONNECTION_FAILED
-    if code is ErrorCode.AUTHENTICATION_FAILED:
-        return ExitCode.AUTHENTICATION_FAILED
-    if code is ErrorCode.TIMEOUT:
-        return ExitCode.TIMEOUT
-    if code is ErrorCode.CANCELLED:
-        return ExitCode.CANCELLED
-    if code is ErrorCode.QUERY_FAILED or code is ErrorCode.COMPARISON_FAILED:
-        return ExitCode.QUERY_FAILED
-    return ExitCode.INTERNAL_ERROR
-
-
 def error_report_from_exception(exc: BaseException) -> ErrorReport:
     """Convert expected and unexpected failures to a stable report."""
 
@@ -127,7 +109,6 @@ def error_report_from_exception(exc: BaseException) -> ErrorReport:
     return ErrorReport(
         code=code,
         message=message,
-        exit_code=exit_code_for_error(code),
         hint=hint,
         exception_type=exc.__class__.__name__,
     )

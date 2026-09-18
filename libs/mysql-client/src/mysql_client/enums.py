@@ -1,16 +1,6 @@
-"""Finite values shared by the MySQL Agent CLI foundation."""
+"""Finite values owned by the MySQL client domain."""
 
-from enum import Enum, IntEnum
-
-
-class Command(str, Enum):
-    """Top-level agent operations."""
-
-    READ = "read"
-    WRITE = "write"
-    EXPLAIN = "explain"
-    BENCHMARK = "benchmark"
-    COMPARE = "compare"
+from enum import Enum
 
 
 class SqlStatementType(str, Enum):
@@ -44,34 +34,12 @@ class ErrorCode(str, Enum):
     INTERNAL_ERROR = "internal_error"
 
 
-class ExitCode(IntEnum):
-    """Process exit codes exposed by the CLI."""
-
-    SUCCESS = 0
-    INTERNAL_ERROR = 1
-    INVALID_ARGUMENT = 2
-    CONNECTION_FAILED = 3
-    AUTHENTICATION_FAILED = 4
-    QUERY_FAILED = 5
-    TIMEOUT = 6
-    CANCELLED = 130
-
-
 class ExplainFormat(str, Enum):
     """MySQL execution-plan formats."""
 
     TRADITIONAL = "traditional"
     JSON = "json"
     TREE = "tree"
-
-
-class OutputFormat(str, Enum):
-    """Formats accepted by the presentation layer."""
-
-    TABLE = "table"
-    JSON = "json"
-    CSV = "csv"
-    TSV = "tsv"
 
 
 class Capability(str, Enum):
@@ -95,8 +63,9 @@ class InputSource(str, Enum):
     STDIN = "stdin"
 
 
-class ResponseStatus(str, Enum):
-    """Whether a CLI response completed successfully."""
+class CancellationReason(str, Enum):
+    """Reasons supplied to an asynchronous cancellation controller."""
 
-    SUCCESS = "success"
-    ERROR = "error"
+    USER_REQUEST = "user_request"
+    SHUTDOWN = "shutdown"
+    POLICY = "policy"

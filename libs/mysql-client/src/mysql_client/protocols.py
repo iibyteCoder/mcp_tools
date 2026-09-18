@@ -1,16 +1,30 @@
-"""Minimal dependency-free protocols for parser and execution adapters."""
+"""Dependency-free asynchronous protocols for execution adapters."""
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from mysql_client.models import (
-    CancellationReason,
-    ParsedSql,
-    Request,
-    ResponsePayload,
-    SqlInput,
-)
+from mysql_client.enums import CancellationReason
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from mysql_client.request_models import (
+        BenchmarkRequest,
+        CompareRequest,
+        ExplainRequest,
+        ParsedSql,
+        ReadRequest,
+        SqlInput,
+        WriteRequest,
+    )
+    from mysql_client.result_models import (
+        BenchmarkResult,
+        CompareResult,
+        DatabaseRow,
+        ExplainResult,
+        WriteResult,
+    )
 
 
 class SqlParser(Protocol):
@@ -21,10 +35,22 @@ class SqlParser(Protocol):
 
 
 class QuerySession(Protocol):
-    """Execute typed requests against one already-selected target."""
+    """Execute typed requests against one already-selected target asynchronously."""
 
-    def execute(self, request: Request) -> ResponsePayload:
-        """Execute one request and return a typed result."""
+    async def execute_read(self, request: ReadRequest) -> AsyncIterator[DatabaseRow]:
+        """Return a bounded asynchronous stream of read rows."""
+
+    async def execute_write(self, request: WriteRequest) -> WriteResult:
+        """Execute one write request and return its typed result."""
+
+    async def execute_explain(self, request: ExplainRequest) -> ExplainResult:
+        """Execute one explain request and return its typed result."""
+
+    async def execute_benchmark(self, request: BenchmarkRequest) -> BenchmarkResult:
+        """Execute one benchmark request and return its typed result."""
+
+    async def execute_compare(self, request: CompareRequest) -> CompareResult:
+        """Execute one comparison request and return its typed result."""
 
 
 class CancellationController(Protocol):
@@ -34,8 +60,8 @@ class CancellationController(Protocol):
     def is_cancelled(self) -> bool:
         """Whether cancellation has been requested."""
 
-    def cancel(self, reason: CancellationReason = CancellationReason.USER_REQUEST) -> None:
-        """Request cancellation of the current operation."""
+    async def cancel(self, reason: CancellationReason = CancellationReason.USER_REQUEST) -> None:
+        """Request asynchronous cancellation of the current operation."""
 
-    def raise_if_cancelled(self) -> None:
+    async def raise_if_cancelled(self) -> None:
         """Raise the session's cancellation error when cancellation is observed."""
