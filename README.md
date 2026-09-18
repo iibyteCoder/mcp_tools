@@ -1,26 +1,24 @@
-# MCP Tools
+# MySQL CLI
 
-基于 Python 3.10+ 和 uv 构建的 MCP（Model Context Protocol）服务器集合。
+基于 Python 3.10+ 和 uv 构建的 MySQL 客户端与 JSON 命令行工具。
 
 ## 项目结构
 
 ```text
 mcp_tools/
-├── packages/           # 独立的 MCP 服务包
-│   ├── mcp-mysql/     # MySQL MCP 服务器
-│   └── mcp-neo4j/     # Neo4j MCP 服务器
-├── libs/               # 共享库
-│   └── mcp-base/      # 基类和工具函数
-├── Claude.md           # 开发指南
-└── pyproject.toml      # 工作区配置
+├── libs/mysql-client/       # 类型化 MySQL 执行基础库
+├── packages/mysql-command/  # db-mysql 命令行工具
+├── skills/mysql-cli/        # CLI 使用契约与连接参考
+├── Claude.md                # 开发指南
+└── pyproject.toml           # 工作区配置
 ```
 
-## 可用服务
+## 可用工具
 
-| 包名 | 描述 | 状态 |
-| ---- | ---- | ---- |
-| [mcp-mysql](packages/mcp-mysql/README.md) | MySQL 数据库操作 | 已就绪 |
-| [mcp-neo4j](packages/mcp-neo4j/README.md) | Neo4j 图数据库操作 | 已就绪 |
+| 包名 | 描述 |
+| ---- | ---- |
+| [mysql-client](libs/mysql-client/pyproject.toml) | 类型化异步 MySQL 执行基础库 |
+| [mysql-cli](packages/mysql-command/pyproject.toml) | JSON-only `db-mysql` 命令行工具 |
 
 ## 快速开始
 
@@ -29,26 +27,20 @@ mcp_tools/
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 
-### 全局安装服务
+### 安装 CLI
 
 ```bash
-# 安装 MySQL MCP 服务器
-cd packages/mcp-mysql
-uv tool install .
+# 在工作区同步依赖
+uv sync
 
-# 安装 Neo4j MCP 服务器
-cd packages/mcp-neo4j
-uv tool install .
-
-# 安装后可全局使用
-mcp-mysql
-mcp-neo4j
+# 安装 db-mysql
+uv tool install packages/mysql-command
 ```
 
-### 使用 uvx 运行（无需安装）
+安装后可使用：
 
 ```bash
-uvx --from /path/to/packages/mcp-mysql mcp-mysql
+db-mysql --json profile list
 ```
 
 ### 开发模式
@@ -57,11 +49,14 @@ uvx --from /path/to/packages/mcp-mysql mcp-mysql
 # 安装所有依赖
 uv sync
 
-# 开发模式下运行服务
-uv run mcp-mysql
+# 运行 CLI 测试
+uv run --project packages/mysql-command pytest
+
+# 运行客户端测试
+uv run --project libs/mysql-client pytest
 ```
 
-## 添加新服务
+CLI 命令和参数约定请参考 [mysql-cli skill](skills/mysql-cli/SKILL.md)。
 
 开发指南和最佳实践请参考 [Claude.md](Claude.md)。
 

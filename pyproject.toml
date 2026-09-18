@@ -1,7 +1,7 @@
 [project]
-name = "mcp-tools"
+name = "mysql-cli-workspace"
 version = "0.0.0"
-description = "MCP 工具集 - MCP 服务器集合"
+description = "MySQL CLI workspace"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]
@@ -33,7 +33,7 @@ select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mcp_base", "mcp_minio", "mcp_mysql", "mcp_neo4j", "mcp_redis"]
+known-first-party = ["mysql_client", "mysql_command"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -46,5 +46,5 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["mcp.*", "aiomysql", "minio", "neo4j", "pydantic_settings", "redis"]
+module = ["aiomysql"]
 ignore_missing_imports = true
