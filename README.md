@@ -5,7 +5,7 @@
 ## 项目结构
 
 ```text
-mcp_tools/
+./
 ├── libs/mysql-client/       # 类型化 MySQL 执行基础库
 ├── packages/mysql-cli/       # db-mysql 命令行工具
 ├── skills/mysql-cli/        # CLI 使用契约与连接参考
