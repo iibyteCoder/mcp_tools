@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
+    from mysql_client import DatabaseName, TableName
 
 
 class CommandGroup(str, Enum):
@@ -71,6 +72,7 @@ class ExitCode(IntEnum):
     INVALID_ARGUMENT = 2
     INPUT_ERROR = 3
     PROFILE_ERROR = 4
+    EXECUTION_ERROR = 5
     INTERNAL_ERROR = 70
 
 
@@ -95,6 +97,13 @@ class DiagnosticErrorType(str, Enum):
     PROFILE_CONFLICT = "profile_conflict"
     SECRET_STORE = "secret_store_error"
     PROFILE_VALIDATION = "profile_validation_failed"
+    CONNECTION = "connection_failed"
+    AUTHENTICATION = "authentication_failed"
+    DATABASE_NOT_FOUND = "database_not_found"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"
+    EXECUTION = "execution_failed"
+    CONFIGURATION = "configuration_failed"
 
 
 class ErrorCode(str, Enum):
@@ -113,6 +122,14 @@ class ErrorCode(str, Enum):
     PROFILE_INVALID = "profile_invalid"
     SECRET_STORE = "secret_store_error"
     PROFILE_VALIDATION_FAILED = "profile_validation_failed"
+    CONNECTION_FAILED = "connection_failed"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    DATABASE_NOT_FOUND = "database_not_found"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"
+    EXECUTION_FAILED = "execution_failed"
+    CONFIGURATION_FAILED = "configuration_failed"
+    COMPARISON_FAILED = "comparison_failed"
     INTERNAL_ERROR = "internal_error"
 
 
@@ -120,6 +137,12 @@ class DiagnosticStatus(str, Enum):
     """Outcome status for a command request that did not contact a database."""
 
     PARSED = "parsed"
+
+
+class CommandStatus(str, Enum):
+    """Outcome status for a command that contacted the selected target."""
+
+    COMPLETED = "completed"
 
 
 class ParameterKind(str, Enum):
@@ -191,6 +214,8 @@ class CommandRequest:
     profile_password: str | None = field(default=None, repr=False)
     profile_clear_password: bool = False
     profile_no_bind: bool = False
+    schema_database: DatabaseName | None = None
+    schema_table: TableName | None = None
 
 
 PROFILE_ROUTES: tuple[CommandRoute, ...] = (

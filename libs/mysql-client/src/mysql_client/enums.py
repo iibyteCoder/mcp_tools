@@ -79,6 +79,18 @@ class Capability(str, Enum):
     STREAMING = "streaming"
 
 
+class InspectionCommand(str, Enum):
+    """Read-only server and schema inspection operations."""
+
+    SERVER_INSPECT = "server_inspect"
+    SERVER_CAPABILITIES = "server_capabilities"
+    SCHEMA_DATABASES = "schema_databases"
+    SCHEMA_TABLES = "schema_tables"
+    SCHEMA_DESCRIBE = "schema_describe"
+    SCHEMA_INDEXES = "schema_indexes"
+    SCHEMA_STATS = "schema_stats"
+
+
 class InputSource(str, Enum):
     """Where SQL text came from."""
 

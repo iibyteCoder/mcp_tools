@@ -11,6 +11,7 @@ if TYPE_CHECKING:
         BenchmarkRequest,
         CompareRequest,
         ExplainRequest,
+        InspectionRequest,
         ParsedSql,
         ReadRequest,
         SqlInput,
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
         BenchmarkResult,
         CompareResult,
         ExplainResult,
+        InspectionResult,
         QueryResult,
         WriteResult,
     )
@@ -50,6 +52,9 @@ class QuerySession(Protocol):
 
     async def execute_compare(self, request: CompareRequest) -> CompareResult:
         """Execute one comparison request and return its typed result."""
+
+    async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
+        """Execute one trusted, read-only server or schema inspection."""
 
 
 class CancellationController(Protocol):

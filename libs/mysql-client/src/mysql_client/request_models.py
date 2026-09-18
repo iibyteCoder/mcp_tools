@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeAlias
 
-from mysql_client.enums import ExplainFormat, InputSource, SqlStatementType, TransactionAction
-from mysql_client.value_models import DatabaseValue, SqlText
+from mysql_client.enums import ExplainFormat, InputSource, InspectionCommand, SqlStatementType, TransactionAction
+from mysql_client.value_models import DatabaseName, DatabaseValue, SqlText, TableName
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -171,4 +171,99 @@ class ExecutionPolicyDefaults:
             raise ValueError("差异样本数不能为负数")
 
 
-Request: TypeAlias = ReadRequest | WriteRequest | ExplainRequest | BenchmarkRequest | CompareRequest
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ServerInspectRequest:
+    """Request for read-only server identity and session details."""
+
+    command: InspectionCommand = InspectionCommand.SERVER_INSPECT
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SERVER_INSPECT:
+            raise ValueError("server inspect 请求必须使用 SERVER_INSPECT")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ServerCapabilitiesRequest:
+    """Request for read-only server capability variables."""
+
+    command: InspectionCommand = InspectionCommand.SERVER_CAPABILITIES
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SERVER_CAPABILITIES:
+            raise ValueError("server capabilities 请求必须使用 SERVER_CAPABILITIES")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaDatabasesRequest:
+    """Request for visible database metadata."""
+
+    command: InspectionCommand = InspectionCommand.SCHEMA_DATABASES
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SCHEMA_DATABASES:
+            raise ValueError("schema databases 请求必须使用 SCHEMA_DATABASES")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaTablesRequest:
+    """Request for tables in the selected or explicitly named database."""
+
+    database: DatabaseName | None = None
+    command: InspectionCommand = InspectionCommand.SCHEMA_TABLES
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SCHEMA_TABLES:
+            raise ValueError("schema tables 请求必须使用 SCHEMA_TABLES")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaDescribeRequest:
+    """Request for columns of one table."""
+
+    table: TableName
+    database: DatabaseName | None = None
+    command: InspectionCommand = InspectionCommand.SCHEMA_DESCRIBE
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SCHEMA_DESCRIBE:
+            raise ValueError("schema describe 请求必须使用 SCHEMA_DESCRIBE")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaIndexesRequest:
+    """Request for indexes of one table."""
+
+    table: TableName
+    database: DatabaseName | None = None
+    command: InspectionCommand = InspectionCommand.SCHEMA_INDEXES
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SCHEMA_INDEXES:
+            raise ValueError("schema indexes 请求必须使用 SCHEMA_INDEXES")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaStatsRequest:
+    """Request for table statistics in the selected or named database."""
+
+    database: DatabaseName | None = None
+    table: TableName | None = None
+    command: InspectionCommand = InspectionCommand.SCHEMA_STATS
+
+    def __post_init__(self) -> None:
+        if self.command is not InspectionCommand.SCHEMA_STATS:
+            raise ValueError("schema stats 请求必须使用 SCHEMA_STATS")
+
+
+InspectionRequest: TypeAlias = (
+    ServerInspectRequest
+    | ServerCapabilitiesRequest
+    | SchemaDatabasesRequest
+    | SchemaTablesRequest
+    | SchemaDescribeRequest
+    | SchemaIndexesRequest
+    | SchemaStatsRequest
+)
+
+
+Request: TypeAlias = ReadRequest | WriteRequest | ExplainRequest | BenchmarkRequest | CompareRequest | InspectionRequest

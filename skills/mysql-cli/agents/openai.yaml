@@ -1,4 +1,4 @@
 interface:
   display_name: "MySQL CLI"
   short_description: "Inspect MySQL data and manage profiles with db-mysql"
-  default_prompt: "Run $mysql-cli with db-mysql --json and sql read to inspect the requested MySQL data."
+  default_prompt: "Use $mysql-cli with db-mysql --json and the server/schema read-only commands to inspect the requested MySQL target."

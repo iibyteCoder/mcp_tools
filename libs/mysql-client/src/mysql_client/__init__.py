@@ -17,6 +17,7 @@ from mysql_client.enums import (
     ExecutionPolicy,
     ExplainFormat,
     InputSource,
+    InspectionCommand,
     PolicyViolationReason,
     SqlParseReason,
     SqlStatementType,
@@ -39,6 +40,7 @@ from mysql_client.errors import (
     UnsupportedSqlError,
     error_report_from_exception,
 )
+from mysql_client.inspection_queries import InspectionQueryDefinition, build_inspection_query
 from mysql_client.parser import MySqlSqlParser
 from mysql_client.policy import ExecutionPolicyValidator, validate_execution_policy
 from mysql_client.protocols import CancellationController, QuerySession, SqlParser
@@ -47,9 +49,17 @@ from mysql_client.request_models import (
     CompareRequest,
     ExecutionPolicyDefaults,
     ExplainRequest,
+    InspectionRequest,
     ParsedSql,
     ReadRequest,
     Request,
+    SchemaDatabasesRequest,
+    SchemaDescribeRequest,
+    SchemaIndexesRequest,
+    SchemaStatsRequest,
+    SchemaTablesRequest,
+    ServerCapabilitiesRequest,
+    ServerInspectRequest,
     SqlInput,
     WriteRequest,
 )
@@ -61,6 +71,7 @@ from mysql_client.result_models import (
     ErrorReport,
     ExecutionMetadata,
     ExplainResult,
+    InspectionResult,
     QueryResult,
     ResponsePayload,
     TargetMetadata,
@@ -69,6 +80,7 @@ from mysql_client.result_models import (
 from mysql_client.session import MySqlSession, SessionState
 from mysql_client.value_models import (
     ByteCount,
+    DatabaseName,
     DatabaseScalar,
     DatabaseValue,
     JsonScalar,
@@ -77,6 +89,7 @@ from mysql_client.value_models import (
     ProfileName,
     RowCount,
     SqlText,
+    TableName,
 )
 
 __all__ = [
@@ -96,6 +109,7 @@ __all__ = [
     "ComparisonError",
     "ConfigurationError",
     "ConnectionError",
+    "DatabaseName",
     "DatabaseNotFoundError",
     "DatabaseRow",
     "DatabaseScalar",
@@ -115,6 +129,10 @@ __all__ = [
     "ExplainRequest",
     "ExplainResult",
     "InputSource",
+    "InspectionCommand",
+    "InspectionQueryDefinition",
+    "InspectionRequest",
+    "InspectionResult",
     "InternalError",
     "InvalidArgumentError",
     "JsonScalar",
@@ -136,7 +154,14 @@ __all__ = [
     "Request",
     "ResponsePayload",
     "RowCount",
+    "SchemaDatabasesRequest",
+    "SchemaDescribeRequest",
+    "SchemaIndexesRequest",
+    "SchemaStatsRequest",
+    "SchemaTablesRequest",
     "SecretValue",
+    "ServerCapabilitiesRequest",
+    "ServerInspectRequest",
     "SessionState",
     "SqlInput",
     "SqlParseError",
@@ -144,11 +169,13 @@ __all__ = [
     "SqlParser",
     "SqlStatementType",
     "SqlText",
+    "TableName",
     "TargetMetadata",
     "TransactionAction",
     "UnsupportedSqlError",
     "WriteRequest",
     "WriteResult",
+    "build_inspection_query",
     "error_report_from_exception",
     "validate_execution_policy",
 ]

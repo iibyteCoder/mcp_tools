@@ -26,12 +26,14 @@ from mysql_client.errors import (
     QueryTimeoutError,
     UnsupportedSqlError,
 )
+from mysql_client.inspection_queries import build_inspection_query
 from mysql_client.read_executor import ReadExecutor
 from mysql_client.request_models import (
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
     ExplainRequest,
+    InspectionRequest,
     ReadRequest,
     SqlInput,
     WriteRequest,
@@ -41,6 +43,7 @@ from mysql_client.result_models import (
     CompareResult,
     ExecutionMetadata,
     ExplainResult,
+    InspectionResult,
     QueryResult,
     TargetMetadata,
     WriteResult,
@@ -222,6 +225,19 @@ class MySqlSession:
     async def execute_benchmark(self, request: BenchmarkRequest) -> BenchmarkResult:
         del request
         raise UnsupportedSqlError("benchmark 不属于 mysql-client session 的基础执行能力")
+
+    async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
+        """Execute a centrally-defined read-only inspection query."""
+
+        definition = build_inspection_query(request)
+        result = await self.execute_read(
+            ReadRequest(
+                sql=SqlInput.inline(definition.sql),
+                parameters=definition.parameters,
+                statement_type=definition.statement_type,
+            )
+        )
+        return InspectionResult(command=definition.command, query=result)
 
     async def execute_compare(self, request: CompareRequest) -> CompareResult:
         del request

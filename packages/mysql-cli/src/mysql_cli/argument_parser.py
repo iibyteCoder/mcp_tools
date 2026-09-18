@@ -23,6 +23,7 @@ from mysql_cli.command_model import (
 )
 from mysql_cli.errors import CliFailure, ErrorDetail
 from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
+from mysql_client import DatabaseName, TableName
 
 
 class ParserExit(Exception):
@@ -68,6 +69,7 @@ def build_parser() -> CliArgumentParser:
         description="JSON-only MySQL command line foundation.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--json", action="store_true", help="emit one JSON document")
     parser.add_argument("--profile", dest="_selected_profile", help="select a profile for this invocation")
     subparsers = parser.add_subparsers(dest="_route_group")
     help_parser = subparsers.add_parser("help", help="show command help")
@@ -88,6 +90,8 @@ def build_parser() -> CliArgumentParser:
         action_parser.set_defaults(_command_group=route.group, _command_action=route.action)
         if route.group is CommandGroup.PROFILE:
             _add_profile_arguments(action_parser, route.action)
+        if route.group is CommandGroup.SCHEMA:
+            _add_schema_arguments(action_parser, route.action)
         if route in SQL_ROUTES:
             action_parser.add_argument("--sql", dest="_sql", help="inline SQL text")
             action_parser.add_argument("--sql-file", dest="_sql_file", type=Path, help="SQL file path; - reads stdin")
@@ -109,6 +113,8 @@ def parse_command_request(parser: argparse.ArgumentParser, argv: Sequence[str]) 
         return _with_selected_profile(request, selected_profile)
     if group is CommandGroup.PROFILE:
         return _profile_request(namespace, group=group, action=action, selected_profile=selected_profile)
+    if group is CommandGroup.SCHEMA:
+        return _schema_request(namespace, group=group, action=action, selected_profile=selected_profile)
     return CommandRequest(group=group, action=action, selected_profile=selected_profile)
 
 
@@ -138,6 +144,19 @@ def _add_profile_arguments(parser: argparse.ArgumentParser, action: CommandActio
         parser.add_argument("--password", dest="_password")
         parser.add_argument("--no-password", dest="_no_password", action="store_true")
         parser.add_argument("--no-bind", dest="_no_bind", action="store_true")
+
+
+def _add_schema_arguments(parser: argparse.ArgumentParser, action: CommandAction) -> None:
+    if action in {CommandAction.TABLES, CommandAction.DESCRIBE, CommandAction.INDEXES, CommandAction.STATS}:
+        parser.add_argument(
+            "--database",
+            dest="_schema_database",
+            help="schema name; default is the selected database",
+        )
+    if action in {CommandAction.DESCRIBE, CommandAction.INDEXES}:
+        parser.add_argument("--table", dest="_schema_table", required=True, help="table name")
+    elif action is CommandAction.STATS:
+        parser.add_argument("--table", dest="_schema_table", help="optional table name")
 
 
 def _profile_request(
@@ -198,6 +217,22 @@ def _with_selected_profile(request: CommandRequest, selected_profile: ProfileNam
         sql_input=request.sql_input,
         params_file=request.params_file,
         selected_profile=selected_profile,
+    )
+
+
+def _schema_request(
+    namespace: argparse.Namespace,
+    *,
+    group: CommandGroup,
+    action: CommandAction,
+    selected_profile: ProfileName | None,
+) -> CommandRequest:
+    return CommandRequest(
+        group=group,
+        action=action,
+        selected_profile=selected_profile,
+        schema_database=_database_name(getattr(namespace, "_schema_database", None)),
+        schema_table=_table_name(getattr(namespace, "_schema_table", None)),
     )
 
 
@@ -318,3 +353,35 @@ def _optional_path(namespace: argparse.Namespace, name: str) -> Path | None:
     if value is None or isinstance(value, Path):
         return value
     raise TypeError(f"参数 {name} 类型无效")
+
+
+def _database_name(value: object) -> DatabaseName | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("参数 --database 类型无效")
+    try:
+        return DatabaseName(value=value)
+    except ValueError as exc:
+        raise _schema_argument_failure("数据库名无效", "--database") from exc
+
+
+def _table_name(value: object) -> TableName | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("参数 --table 类型无效")
+    try:
+        return TableName(value=value)
+    except ValueError as exc:
+        raise _schema_argument_failure("表名无效", "--table") from exc
+
+
+def _schema_argument_failure(message: str, argument: str) -> CliFailure:
+    return CliFailure(
+        code=ErrorCode.INVALID_ARGUMENT,
+        message=message,
+        retryable=False,
+        details=(ErrorDetail(error_type=DiagnosticErrorType.ARGUMENT_SYNTAX, argument=argument),),
+        exit_code=ExitCode.INVALID_ARGUMENT,
+    )

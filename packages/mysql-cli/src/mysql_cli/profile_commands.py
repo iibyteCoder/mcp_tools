@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, CommandStatus
 from mysql_cli.output_model import BindingView, ProfileCommandData, ProfileView
 from mysql_cli.profile_models import DirectoryBinding, ProfileName, ProfileRecord, ProfileSetRequest
 
@@ -18,7 +18,7 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
     action = request.action
     if action is CommandAction.LIST:
         return ProfileCommandData(
-            status="completed",
+            status=CommandStatus.COMPLETED,
             command_group=CommandGroup.PROFILE,
             action=action,
             profiles=tuple(_profile_view(profile) for profile in service.list_profiles()),
@@ -43,7 +43,7 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
     if action is CommandAction.VALIDATE:
         profile = await service.validate(_required_name(request))
         return ProfileCommandData(
-            status="completed",
+            status=CommandStatus.COMPLETED,
             command_group=CommandGroup.PROFILE,
             action=action,
             profile=_profile_view(profile),
@@ -53,7 +53,7 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
     if action is CommandAction.BIND:
         binding = service.bind(_required_name(request), request.profile_path)
         return ProfileCommandData(
-            status="completed",
+            status=CommandStatus.COMPLETED,
             command_group=CommandGroup.PROFILE,
             action=action,
             binding=_binding_view(binding),
@@ -61,7 +61,7 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
     if action is CommandAction.UNBIND:
         removed_binding: DirectoryBinding | None = service.unbind(request.profile_path)
         return ProfileCommandData(
-            status="completed",
+            status=CommandStatus.COMPLETED,
             command_group=CommandGroup.PROFILE,
             action=action,
             binding=None if removed_binding is None else _binding_view(removed_binding),
@@ -73,7 +73,7 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
     if action is CommandAction.REMOVE:
         removed_bindings = service.remove(_required_name(request))
         return ProfileCommandData(
-            status="completed",
+            status=CommandStatus.COMPLETED,
             command_group=CommandGroup.PROFILE,
             action=action,
             removed_bindings=removed_bindings,
@@ -102,7 +102,7 @@ def _binding_view(binding: DirectoryBinding) -> BindingView:
 
 def _with_profile(action: CommandAction, profile: ProfileRecord) -> ProfileCommandData:
     return ProfileCommandData(
-        status="completed",
+        status=CommandStatus.COMPLETED,
         command_group=CommandGroup.PROFILE,
         action=action,
         profile=_profile_view(profile),

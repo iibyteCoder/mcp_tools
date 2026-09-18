@@ -100,6 +100,24 @@ class ProfileService:
             raise ProfileServiceError(ProfileServiceErrorCode.NOT_FOUND, "profile not found")
         return ProfileSelection(profile=profile, source=ProfileSelectionSource.DIRECTORY, binding=binding)
 
+    def connection_config(self, profile: ProfileRecord) -> MySqlConnectionConfig:
+        """Build a secret-safe client config for one already-selected profile."""
+
+        password = self._get_secret(profile.name)
+        if password is None:
+            raise ProfileServiceError(ProfileServiceErrorCode.SECRET_MISSING, "profile secret is missing")
+        settings = profile.settings
+        return MySqlConnectionConfig(
+            host=settings.host,
+            port=settings.port,
+            user=settings.user,
+            password=SecretValue(_value=password),
+            database=settings.database,
+            charset=settings.charset,
+            connect_timeout_seconds=settings.connect_timeout,
+            read_timeout_seconds=settings.read_timeout,
+        )
+
     def set(self, request: ProfileSetRequest) -> ProfileRecord:
         current_registry = self.store.read()
         existing = current_registry.find(request.name)
@@ -234,19 +252,7 @@ class ProfileService:
 
     async def validate(self, name: ProfileName) -> ProfileRecord:
         profile = self.require(name)
-        password = self._get_secret(name)
-        if password is None:
-            raise ProfileServiceError(ProfileServiceErrorCode.SECRET_MISSING, "profile secret is missing")
-        config = MySqlConnectionConfig(
-            host=profile.settings.host,
-            port=profile.settings.port,
-            user=profile.settings.user,
-            password=SecretValue(_value=password),
-            database=profile.settings.database,
-            charset=profile.settings.charset,
-            connect_timeout_seconds=profile.settings.connect_timeout,
-            read_timeout_seconds=profile.settings.read_timeout,
-        )
+        config = self.connection_config(profile)
         try:
             await self.validator.validate(config)
         except ProfileServiceError:

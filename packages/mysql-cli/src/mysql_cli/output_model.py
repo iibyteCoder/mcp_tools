@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from mysql_cli.command_model import CommandAction, CommandGroup, OutputMode
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandStatus, OutputMode
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
         ParameterKind,
     )
     from mysql_cli.errors import ErrorDetail
-    from mysql_client import SqlStatementType
+    from mysql_client import InspectionResult, SqlStatementType
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -93,7 +93,7 @@ class BindingView:
 class ProfileCommandData:
     """Successful result for one profile management operation."""
 
-    status: str
+    status: CommandStatus
     command_group: CommandGroup
     action: CommandAction
     profile: ProfileView | None = None
@@ -106,11 +106,22 @@ class ProfileCommandData:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class InspectionCommandData:
+    """Successful output for one server or schema inspection."""
+
+    status: CommandStatus
+    command_group: CommandGroup
+    action: CommandAction
+    profile: str
+    result: InspectionResult
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SuccessEnvelope:
     """Top-level success envelope."""
 
     ok: bool
-    data: CommandDiagnosticData | ProfileCommandData
+    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData
     meta: DiagnosticMetadata
 
 

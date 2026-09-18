@@ -25,12 +25,14 @@ from mysql_cli.command_model import (
 )
 from mysql_cli.errors import CliFailure, ErrorDetail
 from mysql_cli.input_loader import LoadedInputs, load_inputs
+from mysql_cli.inspection_service import InspectionService
 from mysql_cli.json_codec import encode_json_document
 from mysql_cli.output_model import (
     CommandDiagnosticData,
     DiagnosticMetadata,
     ErrorBody,
     ErrorEnvelope,
+    InspectionCommandData,
     ParameterDiagnostic,
     ProfileCommandData,
     SqlDiagnostic,
@@ -41,6 +43,7 @@ from mysql_cli.profile_service import ProfileService, ProfileServiceError, Profi
 from mysql_cli.profile_store import JsonProfileStore, ProfileStoreError
 from mysql_cli.secret_store import KeyringSecretStore
 from mysql_client import (
+    ClientError,
     ExecutionPolicy,
     ExecutionPolicyError,
     MySqlSqlParser,
@@ -48,6 +51,9 @@ from mysql_client import (
     SqlParseError,
     UnsupportedSqlError,
     validate_execution_policy,
+)
+from mysql_client import (
+    ErrorCode as ClientErrorCode,
 )
 
 
@@ -62,16 +68,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         if request.group is CommandGroup.HELP:
             parser.print_help()
             return int(ExitCode.SUCCESS)
+        profile_service = ProfileService(JsonProfileStore(), KeyringSecretStore())
         if request.group is CommandGroup.PROFILE:
             profile_data: ProfileCommandData = asyncio.run(
                 execute_profile_command(
                     request,
-                    ProfileService(JsonProfileStore(), KeyringSecretStore()),
+                    profile_service,
                 )
             )
             envelope = SuccessEnvelope(
                 ok=True,
                 data=profile_data,
+                meta=DiagnosticMetadata(command_group=request.group, action=request.action, input_source=None),
+            )
+            _write_json(envelope, sys.stdout)
+            return int(ExitCode.SUCCESS)
+        if request.group in {CommandGroup.SERVER, CommandGroup.SCHEMA}:
+            inspection_data: InspectionCommandData = asyncio.run(
+                InspectionService(profile_service).execute(request)
+            )
+            envelope = SuccessEnvelope(
+                ok=True,
+                data=inspection_data,
                 meta=DiagnosticMetadata(command_group=request.group, action=request.action, input_source=None),
             )
             _write_json(envelope, sys.stdout)
@@ -103,6 +121,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(failure.exit_code)
     except ProfileServiceError as profile_error:
         failure = _profile_service_failure(profile_error)
+        _write_failure(failure, sys.stdout, request=request)
+        return int(failure.exit_code)
+    except ClientError as client_error:
+        failure = _client_failure(client_error)
         _write_failure(failure, sys.stdout, request=request)
         return int(failure.exit_code)
     except Exception:
@@ -274,6 +296,35 @@ def _profile_service_failure(error: ProfileServiceError) -> CliFailure:
         retryable=False,
         details=(ErrorDetail(error_type=error_type),),
         exit_code=ExitCode.PROFILE_ERROR,
+    )
+
+
+def _client_failure(error: ClientError) -> CliFailure:
+    mapping = {
+        ClientErrorCode.INVALID_ARGUMENT: (ErrorCode.INVALID_ARGUMENT, DiagnosticErrorType.ARGUMENT_SYNTAX),
+        ClientErrorCode.CONFIGURATION_FAILED: (ErrorCode.CONFIGURATION_FAILED, DiagnosticErrorType.CONFIGURATION),
+        ClientErrorCode.CONNECTION_FAILED: (ErrorCode.CONNECTION_FAILED, DiagnosticErrorType.CONNECTION),
+        ClientErrorCode.AUTHENTICATION_FAILED: (
+            ErrorCode.AUTHENTICATION_FAILED,
+            DiagnosticErrorType.AUTHENTICATION,
+        ),
+        ClientErrorCode.DATABASE_NOT_FOUND: (ErrorCode.DATABASE_NOT_FOUND, DiagnosticErrorType.DATABASE_NOT_FOUND),
+        ClientErrorCode.TIMEOUT: (ErrorCode.TIMEOUT, DiagnosticErrorType.TIMEOUT),
+        ClientErrorCode.CANCELLED: (ErrorCode.CANCELLED, DiagnosticErrorType.CANCELLED),
+        ClientErrorCode.QUERY_FAILED: (ErrorCode.EXECUTION_FAILED, DiagnosticErrorType.EXECUTION),
+        ClientErrorCode.COMPARISON_FAILED: (ErrorCode.COMPARISON_FAILED, DiagnosticErrorType.EXECUTION),
+        ClientErrorCode.UNSUPPORTED_SQL: (ErrorCode.UNSUPPORTED_SQL, DiagnosticErrorType.POLICY_VIOLATION),
+        ClientErrorCode.INVALID_SQL: (ErrorCode.INVALID_SQL, DiagnosticErrorType.SQL_PARSE),
+        ClientErrorCode.INTERNAL_ERROR: (ErrorCode.INTERNAL_ERROR, DiagnosticErrorType.EXECUTION),
+    }
+    code, error_type = mapping[error.code]
+    exit_code = ExitCode.INVALID_ARGUMENT if code is ErrorCode.INVALID_ARGUMENT else ExitCode.EXECUTION_ERROR
+    return CliFailure(
+        code=code,
+        message=error.message,
+        retryable=False,
+        details=(ErrorDetail(error_type=error_type),),
+        exit_code=exit_code,
     )
 
 

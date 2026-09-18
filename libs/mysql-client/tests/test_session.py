@@ -14,7 +14,7 @@ from mysql_client.driver_adapter import (
     DriverCursor,
     DriverFailure,
 )
-from mysql_client.enums import DriverFailureKind, SqlStatementType, TransactionAction
+from mysql_client.enums import DriverFailureKind, InspectionCommand, SqlStatementType, TransactionAction
 from mysql_client.errors import (
     AuthenticationError,
     ConnectionError,
@@ -22,8 +22,9 @@ from mysql_client.errors import (
     QueryCancelledError,
     QueryTimeoutError,
 )
-from mysql_client.request_models import ReadRequest, SqlInput, WriteRequest
+from mysql_client.request_models import ReadRequest, SchemaDescribeRequest, SqlInput, WriteRequest
 from mysql_client.session import MySqlSession, SessionState
+from mysql_client.value_models import TableName
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -241,3 +242,20 @@ async def test_cancellation_kills_query_and_discards_connection() -> None:
     assert factory.kill_count == 1
     assert connection.close_count == 1
     assert session.state is SessionState.INVALIDATED
+
+
+@pytest.mark.asyncio
+async def test_inspection_uses_bound_sql_and_closes_the_session() -> None:
+    cursor = FakeCursor((("billing", "invoices"),))
+    connection = FakeConnection(cursor)
+
+    async with MySqlSession(config(), FakeFactory(connection)) as session:
+        result = await session.execute_inspection(
+            SchemaDescribeRequest(database=None, table=TableName(value="invoices"))
+        )
+
+    assert result.command is InspectionCommand.SCHEMA_DESCRIBE
+    assert cursor.executed[0][1] == (None, "invoices")
+    assert "invoices" not in cursor.executed[0][0]
+    assert "USE " not in cursor.executed[0][0]
+    assert connection.close_count == 1

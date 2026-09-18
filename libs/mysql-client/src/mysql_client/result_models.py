@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from datetime import datetime
 
-    from mysql_client.enums import ErrorCode, ExplainFormat, SqlStatementType
+    from mysql_client.enums import ErrorCode, ExplainFormat, InspectionCommand, SqlStatementType
     from mysql_client.value_models import DatabaseValue
 
 
@@ -106,6 +106,14 @@ class CompareResult:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class InspectionResult:
+    """Typed result for one server or schema inspection query."""
+
+    command: InspectionCommand
+    query: QueryResult
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ErrorReport:
     """Stable structured error data without process or presentation policy."""
 
@@ -115,4 +123,11 @@ class ErrorReport:
     exception_type: str | None = None
 
 
-ResponsePayload: TypeAlias = QueryResult | WriteResult | ExplainResult | BenchmarkResult | CompareResult
+ResponsePayload: TypeAlias = (
+    QueryResult
+    | WriteResult
+    | ExplainResult
+    | BenchmarkResult
+    | CompareResult
+    | InspectionResult
+)
