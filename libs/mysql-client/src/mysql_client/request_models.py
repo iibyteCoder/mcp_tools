@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
 
-from mysql_client.enums import ExplainFormat, InputSource, SqlStatementType
+from mysql_client.enums import ExplainFormat, InputSource, SqlStatementType, TransactionAction
 from mysql_client.value_models import DatabaseValue, SqlText
 
 if TYPE_CHECKING:
@@ -54,6 +54,7 @@ class ReadRequest:
     max_rows: int | None = None
     max_bytes: int | None = None
     statement_timeout_seconds: float | None = None
+    statement_type: SqlStatementType = SqlStatementType.SELECT
 
     def __post_init__(self) -> None:
         if self.max_rows is not None and self.max_rows < 1:
@@ -71,6 +72,7 @@ class WriteRequest:
     sql: SqlInput
     parameters: tuple[DatabaseValue, ...] = ()
     statement_type: SqlStatementType = SqlStatementType.UNKNOWN
+    transaction: TransactionAction = TransactionAction.COMMIT
     statement_timeout_seconds: float | None = None
 
     def __post_init__(self) -> None:

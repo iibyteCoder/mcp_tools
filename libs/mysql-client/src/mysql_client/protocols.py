@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Protocol
 from mysql_client.enums import CancellationReason
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
-
     from mysql_client.request_models import (
         BenchmarkRequest,
         CompareRequest,
@@ -21,8 +19,8 @@ if TYPE_CHECKING:
     from mysql_client.result_models import (
         BenchmarkResult,
         CompareResult,
-        DatabaseRow,
         ExplainResult,
+        QueryResult,
         WriteResult,
     )
 
@@ -37,8 +35,8 @@ class SqlParser(Protocol):
 class QuerySession(Protocol):
     """Execute typed requests against one already-selected target asynchronously."""
 
-    async def execute_read(self, request: ReadRequest) -> AsyncIterator[DatabaseRow]:
-        """Return a bounded asynchronous stream of read rows."""
+    async def execute_read(self, request: ReadRequest) -> QueryResult:
+        """Return a bounded tabular result with columns and execution metadata."""
 
     async def execute_write(self, request: WriteRequest) -> WriteResult:
         """Execute one write request and return its typed result."""

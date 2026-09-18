@@ -69,3 +69,22 @@ class CancellationReason(str, Enum):
     USER_REQUEST = "user_request"
     SHUTDOWN = "shutdown"
     POLICY = "policy"
+
+
+class TransactionAction(str, Enum):
+    """The explicit transaction decision for one write request."""
+
+    COMMIT = "commit"
+    ROLLBACK = "rollback"
+
+
+class DriverFailureKind(str, Enum):
+    """Failure categories emitted by a driver adapter."""
+
+    CONNECTION = "connection"
+    PARAMETER = "parameter"
+    AUTHENTICATION = "authentication"
+    DATABASE_NOT_FOUND = "database_not_found"
+    EXECUTION = "execution"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"

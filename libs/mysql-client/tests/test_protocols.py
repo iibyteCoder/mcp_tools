@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from mysql_client.enums import CancellationReason, ExplainFormat
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
-
     from mysql_client.protocols import CancellationController, QuerySession
     from mysql_client.request_models import (
         BenchmarkRequest,
@@ -18,14 +16,14 @@ if TYPE_CHECKING:
     from mysql_client.result_models import (
         BenchmarkResult,
         CompareResult,
-        DatabaseRow,
         ExplainResult,
+        QueryResult,
         WriteResult,
     )
 
 
 class FakeQuerySession:
-    async def execute_read(self, request: ReadRequest) -> AsyncIterator[DatabaseRow]:
+    async def execute_read(self, request: ReadRequest) -> QueryResult:
         del request
         raise NotImplementedError
 

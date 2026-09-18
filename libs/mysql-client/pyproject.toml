@@ -3,7 +3,7 @@ name = "mysql-client"
 version = "0.1.0"
 description = "Typed asynchronous domain foundation for MySQL execution"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["aiomysql>=0.2.0"]
 
 [build-system]
 requires = ["hatchling"]

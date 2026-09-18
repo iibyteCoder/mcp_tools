@@ -1,5 +1,15 @@
 """Stable, presentation-neutral API for asynchronous MySQL execution."""
 
+from mysql_client.cancellation import CancellationToken
+from mysql_client.configuration import MySqlConnectionConfig, SecretValue
+from mysql_client.driver_adapter import (
+    AiomysqlDriverFactory,
+    DriverColumn,
+    DriverConnection,
+    DriverCursor,
+    DriverFactory,
+    QueryKiller,
+)
 from mysql_client.enums import (
     CancellationReason,
     Capability,
@@ -7,6 +17,7 @@ from mysql_client.enums import (
     ExplainFormat,
     InputSource,
     SqlStatementType,
+    TransactionAction,
 )
 from mysql_client.errors import (
     AuthenticationError,
@@ -49,6 +60,7 @@ from mysql_client.result_models import (
     TargetMetadata,
     WriteResult,
 )
+from mysql_client.session import MySqlSession, SessionState
 from mysql_client.value_models import (
     ByteCount,
     DatabaseScalar,
@@ -62,12 +74,14 @@ from mysql_client.value_models import (
 )
 
 __all__ = [
+    "AiomysqlDriverFactory",
     "AuthenticationError",
     "BenchmarkRequest",
     "BenchmarkResult",
     "ByteCount",
     "CancellationController",
     "CancellationReason",
+    "CancellationToken",
     "Capability",
     "ClientError",
     "ColumnDefinition",
@@ -80,6 +94,10 @@ __all__ = [
     "DatabaseRow",
     "DatabaseScalar",
     "DatabaseValue",
+    "DriverColumn",
+    "DriverConnection",
+    "DriverCursor",
+    "DriverFactory",
     "ErrorCode",
     "ErrorReport",
     "ExecutionMetadata",
@@ -93,10 +111,13 @@ __all__ = [
     "JsonScalar",
     "JsonValue",
     "Milliseconds",
+    "MySqlConnectionConfig",
+    "MySqlSession",
     "ParsedSql",
     "ProfileName",
     "QueryCancelledError",
     "QueryExecutionError",
+    "QueryKiller",
     "QueryResult",
     "QuerySession",
     "QueryTimeoutError",
@@ -104,12 +125,15 @@ __all__ = [
     "Request",
     "ResponsePayload",
     "RowCount",
+    "SecretValue",
+    "SessionState",
     "SqlInput",
     "SqlParseError",
     "SqlParser",
     "SqlStatementType",
     "SqlText",
     "TargetMetadata",
+    "TransactionAction",
     "UnsupportedSqlError",
     "WriteRequest",
     "WriteResult",
