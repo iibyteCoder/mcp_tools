@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "JSON-only MySQL command line foundation"
 requires-python = ">=3.10"
 dependencies = [
+    "click>=8.1.7,<9.0",
     "mysql-client",
     "filelock>=3.16.0",
     "keyring>=25.6.0",

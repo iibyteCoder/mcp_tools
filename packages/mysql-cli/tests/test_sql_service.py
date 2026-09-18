@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_cli.argument_parser import build_parser, parse_command_request
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
 from mysql_cli.input_loader import load_inputs
 from mysql_cli.json_codec import encode_json_document
 from mysql_cli.profile_models import ProfileName, ProfileSetRequest, ProfileSettingsPatch
@@ -13,7 +13,7 @@ from mysql_cli.profile_service import ProfileService
 from mysql_cli.profile_store import JsonProfileStore
 from mysql_cli.secret_store import SecretStore
 from mysql_cli.sql_service import SqlExecutionService
-from mysql_client import DriverColumn, DriverConnection, DriverCursor, MySqlConnectionConfig
+from mysql_client import DriverColumn, DriverConnection, DriverCursor, MySqlConnectionConfig, TransactionAction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -118,18 +118,12 @@ def make_profiles(tmp_path: Path) -> ProfileService:
 
 @pytest.mark.asyncio
 async def test_sql_read_service_binds_params_and_emits_typed_json(tmp_path: Path) -> None:
-    request = parse_command_request(
-        build_parser(),
-        [
-            "--profile",
-            "dev",
-            "sql",
-            "read",
-            "--sql",
-            "SELECT %s",
-            "--params-file",
-            str(tmp_path / "params.json"),
-        ],
+    request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.READ,
+        selected_profile=ProfileName(value="dev"),
+        sql_input=SqlInputSpec.inline("SELECT %s"),
+        params_file=tmp_path / "params.json",
     )
     (tmp_path / "params.json").write_text('["bound"]', encoding="utf-8")
     inputs = load_inputs(request, stdin_text=None)
@@ -147,29 +141,27 @@ async def test_sql_read_service_binds_params_and_emits_typed_json(tmp_path: Path
 
 
 def test_sql_routes_define_explicit_execution_parameters() -> None:
-    parser = build_parser()
-    write_request = parse_command_request(
-        parser,
-        ["sql", "write", "--sql", "UPDATE items SET id = 1", "--transaction", "rollback", "--timeout", "2"],
+    write_request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.WRITE,
+        sql_input=SqlInputSpec.inline("UPDATE items SET id = 1"),
+        sql_transaction=TransactionAction.ROLLBACK,
+        sql_timeout_seconds=2.0,
     )
-    benchmark_request = parse_command_request(
-        parser,
-        ["sql", "benchmark", "--sql", "SELECT 1", "--iterations", "3", "--warmup-iterations", "1"],
+    benchmark_request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.BENCHMARK,
+        sql_input=SqlInputSpec.inline("SELECT 1"),
+        sql_iterations=3,
+        sql_warmup_iterations=1,
     )
-    compare_request = parse_command_request(
-        parser,
-        [
-            "sql",
-            "compare",
-            "--left-sql",
-            "SELECT 1",
-            "--right-sql",
-            "SELECT 1",
-            "--key-column",
-            "id",
-            "--max-diff-samples",
-            "4",
-        ],
+    compare_request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.COMPARE,
+        compare_left_sql_input=SqlInputSpec.inline("SELECT 1"),
+        compare_right_sql_input=SqlInputSpec.inline("SELECT 1"),
+        compare_key_columns=("id",),
+        compare_max_diff_samples=4,
     )
 
     assert write_request.sql_transaction.value == "rollback"

@@ -1,11 +1,58 @@
 from __future__ import annotations
 
-import pytest
+import json
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
 
-from mysql_cli.argument_parser import build_parser, parse_command_request
-from mysql_cli.command_model import CommandAction, CommandGroup
-from mysql_cli.errors import CliFailure
-from mysql_client import DatabaseName, TableName
+import pytest
+from click.testing import CliRunner
+
+from mysql_cli.cli import CliRuntime, cli
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, CommandStatus
+from mysql_cli.output_model import InspectionCommandData
+from mysql_cli.profile_models import ProfileName
+from mysql_client import (
+    ColumnDefinition,
+    DatabaseRow,
+    ExecutionMetadata,
+    InspectionCommand,
+    InspectionResult,
+    QueryResult,
+    SqlStatementType,
+)
+
+if TYPE_CHECKING:
+    from mysql_cli.profile_service import ProfileService
+
+
+@dataclass
+class FakeInspectionService:
+    requests: list[CommandRequest] = field(default_factory=list)
+
+    async def execute(self, request: CommandRequest) -> InspectionCommandData:
+        self.requests.append(request)
+        result = InspectionResult(
+            command=InspectionCommand.SCHEMA_TABLES,
+            query=QueryResult(
+                columns=(ColumnDefinition(name="name", type_name="VARCHAR"),),
+                rows=(DatabaseRow.from_values(("billing",)),),
+                metadata=ExecutionMetadata(statement_type=SqlStatementType.SELECT, duration_ms=0.0),
+            ),
+        )
+        return InspectionCommandData(
+            status=CommandStatus.COMPLETED,
+            command_group=request.group,
+            action=request.action,
+            profile="dev",
+            result=result,
+        )
+
+
+def runtime(service: FakeInspectionService) -> CliRuntime:
+    return CliRuntime(
+        profile_service=cast("ProfileService", object()),
+        inspection_service=service,
+    )
 
 
 @pytest.mark.parametrize(
@@ -15,11 +62,7 @@ from mysql_client import DatabaseName, TableName
         (["server", "capabilities"], CommandGroup.SERVER, CommandAction.CAPABILITIES),
         (["schema", "databases"], CommandGroup.SCHEMA, CommandAction.DATABASES),
         (["schema", "tables", "--database", "billing"], CommandGroup.SCHEMA, CommandAction.TABLES),
-        (
-            ["schema", "describe", "--database", "billing", "--table", "invoices"],
-            CommandGroup.SCHEMA,
-            CommandAction.DESCRIBE,
-        ),
+        (["schema", "describe", "--database", "billing", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.DESCRIBE),
         (["schema", "indexes", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.INDEXES),
         (["schema", "stats", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.STATS),
     ],
@@ -27,25 +70,24 @@ from mysql_client import DatabaseName, TableName
 def test_inspection_routes_are_typed(
     arguments: list[str], group: CommandGroup, action: CommandAction
 ) -> None:
-    request = parse_command_request(build_parser(), ["--json", *arguments])
+    service = FakeInspectionService()
+    result = CliRunner().invoke(cli, ["--profile", "dev", *arguments], obj=runtime(service))
 
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["ok"] is True
+    request = service.requests[0]
     assert request.group is group
     assert request.action is action
+    assert request.selected_profile == ProfileName(value="dev")
 
 
-def test_schema_targets_are_validated_without_database_access() -> None:
-    request = parse_command_request(
-        build_parser(),
-        ["schema", "describe", "--database", "billing", "--table", "invoices"],
-    )
+def test_schema_targets_are_validated_at_click_boundary() -> None:
+    service = FakeInspectionService()
+    missing_table = CliRunner().invoke(cli, ["schema", "describe"], obj=runtime(service))
+    invalid_database = CliRunner().invoke(cli, ["schema", "tables", "--database", "\x00"], obj=runtime(service))
 
-    assert request.schema_database == DatabaseName(value="billing")
-    assert request.schema_table == TableName(value="invoices")
-
-    with pytest.raises(CliFailure) as missing_table:
-        parse_command_request(build_parser(), ["schema", "describe"])
-    assert missing_table.value.code.value == "invalid_argument"
-
-    with pytest.raises(CliFailure) as invalid_database:
-        parse_command_request(build_parser(), ["schema", "tables", "--database", "\x00"])
-    assert invalid_database.value.code.value == "invalid_argument"
+    assert missing_table.exit_code == 2
+    assert json.loads(missing_table.stdout)["error"]["code"] == "invalid_argument"
+    assert invalid_database.exit_code == 2
+    assert json.loads(invalid_database.stdout)["error"]["code"] == "invalid_argument"
+    assert service.requests == []

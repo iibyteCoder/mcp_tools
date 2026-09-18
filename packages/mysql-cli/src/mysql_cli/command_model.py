@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 class CommandGroup(str, Enum):
     """Top-level command groups in the stable command tree."""
 
-    HELP = "help"
     PROFILE = "profile"
     SERVER = "server"
     SCHEMA = "schema"
@@ -28,7 +27,6 @@ class CommandGroup(str, Enum):
 class CommandAction(str, Enum):
     """Actions supported by the stable command tree."""
 
-    HELP = "help"
     LIST = "list"
     SHOW = "show"
     SET = "set"
@@ -193,14 +191,6 @@ class SqlInputSpec:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class CommandRoute:
-    """One statically declared group/action route."""
-
-    group: CommandGroup
-    action: CommandAction
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class CommandRequest:
     """Validated command request handed to the diagnostic pipeline."""
 
@@ -231,38 +221,3 @@ class CommandRequest:
     profile_no_bind: bool = False
     schema_database: DatabaseName | None = None
     schema_table: TableName | None = None
-
-
-PROFILE_ROUTES: tuple[CommandRoute, ...] = (
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.LIST),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.SHOW),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.SET),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.VALIDATE),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.BIND),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.UNBIND),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.RENAME),
-    CommandRoute(group=CommandGroup.PROFILE, action=CommandAction.REMOVE),
-)
-
-SERVER_ROUTES: tuple[CommandRoute, ...] = (
-    CommandRoute(group=CommandGroup.SERVER, action=CommandAction.INSPECT),
-    CommandRoute(group=CommandGroup.SERVER, action=CommandAction.CAPABILITIES),
-)
-
-SCHEMA_ROUTES: tuple[CommandRoute, ...] = (
-    CommandRoute(group=CommandGroup.SCHEMA, action=CommandAction.DATABASES),
-    CommandRoute(group=CommandGroup.SCHEMA, action=CommandAction.TABLES),
-    CommandRoute(group=CommandGroup.SCHEMA, action=CommandAction.DESCRIBE),
-    CommandRoute(group=CommandGroup.SCHEMA, action=CommandAction.INDEXES),
-    CommandRoute(group=CommandGroup.SCHEMA, action=CommandAction.STATS),
-)
-
-SQL_ROUTES: tuple[CommandRoute, ...] = (
-    CommandRoute(group=CommandGroup.SQL, action=CommandAction.READ),
-    CommandRoute(group=CommandGroup.SQL, action=CommandAction.WRITE),
-    CommandRoute(group=CommandGroup.SQL, action=CommandAction.EXPLAIN),
-    CommandRoute(group=CommandGroup.SQL, action=CommandAction.BENCHMARK),
-    CommandRoute(group=CommandGroup.SQL, action=CommandAction.COMPARE),
-)
-
-ALL_ROUTES: tuple[CommandRoute, ...] = PROFILE_ROUTES + SERVER_ROUTES + SCHEMA_ROUTES + SQL_ROUTES

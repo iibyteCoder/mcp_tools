@@ -10,6 +10,7 @@ if TYPE_CHECKING:
         BenchmarkRequest,
         CompareRequest,
         ExplainRequest,
+        InspectionRequest,
         ReadRequest,
         WriteRequest,
     )
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
         BenchmarkResult,
         CompareResult,
         ExplainResult,
+        InspectionResult,
         QueryResult,
         WriteResult,
     )
@@ -40,6 +42,10 @@ class FakeQuerySession:
         raise NotImplementedError
 
     async def execute_compare(self, request: CompareRequest) -> CompareResult:
+        del request
+        raise NotImplementedError
+
+    async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
         del request
         raise NotImplementedError
 

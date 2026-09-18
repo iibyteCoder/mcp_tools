@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_cli.argument_parser import build_parser, parse_command_request
 from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest
 from mysql_cli.inspection_service import InspectionService
 from mysql_cli.json_codec import encode_json_document
@@ -28,7 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-    from mysql_client.value_models import DatabaseValue
+    from mysql_client.value_models import DatabaseParameters
 
 
 @dataclass
@@ -51,9 +50,9 @@ class InspectionCursor:
     lastrowid = None
 
     def __init__(self) -> None:
-        self.executed: list[tuple[str, tuple[DatabaseValue, ...]]] = []
+        self.executed: list[tuple[str, DatabaseParameters]] = []
 
-    async def execute(self, sql: str, parameters: tuple[DatabaseValue, ...]) -> None:
+    async def execute(self, sql: str, parameters: DatabaseParameters) -> None:
         self.executed.append((sql, parameters))
 
     async def fetchmany(self, size: int) -> Sequence[Sequence[object]]:
@@ -119,9 +118,11 @@ async def test_inspection_service_returns_deterministic_secret_free_output(tmp_p
     )
     cursor = InspectionCursor()
     connection = InspectionConnection(cursor)
-    request = parse_command_request(
-        build_parser(),
-        ["--profile", "dev", "schema", "tables", "--database", "billing"],
+    request = CommandRequest(
+        group=CommandGroup.SCHEMA,
+        action=CommandAction.TABLES,
+        selected_profile=ProfileName(value="dev"),
+        schema_database=DatabaseName(value="billing"),
     )
 
     data = await InspectionService(profiles, InspectionFactory(connection)).execute(request)

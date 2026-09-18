@@ -9,8 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from filelock import FileLock
 
-from mysql_cli.argument_parser import build_parser, parse_command_request
-from mysql_cli.command_model import CommandAction, CommandGroup
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
 from mysql_cli.profile_models import (
     ProfileName,
     ProfileRegistry,
@@ -174,8 +173,12 @@ def test_registry_lock_conflict_is_typed(tmp_path: Path) -> None:
 
 
 def test_root_profile_is_typed_and_does_not_change_binding() -> None:
-    parser = build_parser()
-    request = parse_command_request(parser, ["--profile", "dev", "sql", "read", "--sql", "SELECT 1"])
+    request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.READ,
+        selected_profile=ProfileName(value="dev"),
+        sql_input=SqlInputSpec.inline("SELECT 1"),
+    )
 
     assert request.group is CommandGroup.SQL
     assert request.action is CommandAction.READ

@@ -29,7 +29,7 @@ from mysql_client.value_models import TableName
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mysql_client.value_models import DatabaseValue
+    from mysql_client.value_models import DatabaseParameters
 
 
 class FakeCursorContext(AbstractAsyncContextManager[DriverCursor]):
@@ -61,7 +61,7 @@ class FakeCursor:
         self._block = block
         self._rowcount = rowcount
         self._lastrowid = lastrowid
-        self.executed: list[tuple[str, tuple[DatabaseValue, ...]]] = []
+        self.executed: list[tuple[str, DatabaseParameters]] = []
 
     @property
     def rowcount(self) -> int:
@@ -71,7 +71,7 @@ class FakeCursor:
     def lastrowid(self) -> int | None:
         return self._lastrowid
 
-    async def execute(self, sql: str, parameters: tuple[DatabaseValue, ...]) -> None:
+    async def execute(self, sql: str, parameters: DatabaseParameters) -> None:
         self.executed.append((sql, parameters))
         if self._block is not None:
             await self._block.wait()
