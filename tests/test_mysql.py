@@ -1,11 +1,11 @@
 """MySQL MCP 工具集成测试 — 需要本地/可访问的 MySQL 实例."""
 
 import pytest
-from conftest import MYSQL_CONFIG  # type: ignore[import-untyped]
 
 from mcp_mysql.config import MySQLConfig
 from mcp_mysql.connection import MySQLConnection
 from mcp_mysql.tools import build_dispatch, get_all_definitions
+from tests.conftest import MYSQL_CONFIG
 
 # ── Fixtures ──
 

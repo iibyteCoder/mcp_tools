@@ -1,11 +1,21 @@
 """异步 Redis 连接管理器."""
 
+import asyncio
+from enum import Enum
 from typing import Any
 
 import redis.asyncio as aioredis
 from redis.asyncio import Redis
 
 from mcp_redis.config import RedisConfig
+
+
+class RedisPipelineCommand(str, Enum):
+    DELETE = "del"
+
+
+class RedisClientMethod(str, Enum):
+    DELETE = "delete"
 
 
 class RedisConnection:
@@ -32,6 +42,11 @@ class RedisConnection:
         """检查 Redis 客户端是否已连接."""
         return self._client is not None
 
+    @property
+    def client(self) -> Redis:
+        """Expose the established driver to additional read-only CLI operations."""
+        return self._require_client()
+
     def _require_client(self) -> Redis:
         """获取 Redis 客户端, 未连接时抛出异常."""
         if self._client is None:
@@ -49,13 +64,15 @@ class RedisConnection:
         if self._client is not None:
             await self.disconnect()
 
+        connection_timeout = overrides.get("connection_timeout", self._config.connection_timeout)
         params = {
             "host": overrides.get("host", self._config.host),
             "port": overrides.get("port", self._config.port),
             "db": overrides.get("db", self._config.db),
             "username": overrides.get("username", self._config.username) or None,
             "password": overrides.get("password", self._config.password) or None,
-            "socket_connect_timeout": self._config.connection_timeout,
+            "socket_connect_timeout": connection_timeout,
+            "socket_timeout": connection_timeout,
             "socket_keepalive": True,
             "max_connections": self._config.max_connections,
             "decode_responses": True,
@@ -69,8 +86,10 @@ class RedisConnection:
                 f"redis://{params['host']}:{params['port']}/{params.get('db', 0)}",
                 **{k: v for k, v in params.items() if k not in ("host", "port")},
             )
-            await self._client.ping()
+            await asyncio.wait_for(self._client.ping(), timeout=connection_timeout)
         except Exception as e:
+            if self._client is not None:
+                await self._client.aclose()
             self._client = None
             raise ConnectionError(f"连接 Redis 失败: {e}") from e
 
@@ -386,9 +405,6 @@ class RedisConnection:
 
     # ── Pipeline (批量操作) ──
 
-    # Redis 命令别名, 处理 Python 关键字冲突
-    _CMD_ALIASES: dict[str, str] = {"del": "delete"}
-
     async def pipeline_execute(self, commands: list[list[str]]) -> list[Any]:
         """使用管道批量执行 Redis 命令.
 
@@ -405,7 +421,8 @@ class RedisConnection:
             if not cmd:
                 continue
             command = cmd[0].lower()
-            command = self._CMD_ALIASES.get(command, command)
+            if command == RedisPipelineCommand.DELETE.value:
+                command = RedisClientMethod.DELETE.value
             args = cmd[1:]
             getattr(pipe, command)(*args)
         results = await pipe.execute()

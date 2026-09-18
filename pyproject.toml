@@ -33,7 +33,16 @@ select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mcp_base", "mcp_minio", "mcp_mysql", "mcp_neo4j", "mcp_redis"]
+known-first-party = [
+    "db_cli_core",
+    "mcp_base",
+    "mcp_minio",
+    "mcp_mysql",
+    "mcp_neo4j",
+    "mcp_redis",
+    "mysql_cli",
+    "redis_cli",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -44,6 +53,10 @@ python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
 
 [[tool.mypy.overrides]]
 module = ["mcp.*", "aiomysql", "minio", "neo4j", "pydantic_settings", "redis"]

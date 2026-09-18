@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from pydantic_settings import SettingsConfigDict
+
 from mcp_base.config import BaseConfig
 
 
@@ -12,14 +14,13 @@ class MinioConfig(BaseConfig):
     (如 MINIO_ENDPOINT, MINIO_ACCESS_KEY).
     """
 
+    model_config = SettingsConfigDict(env_prefix="MINIO_")
+
     endpoint: str = "localhost:9002"
     access_key: str = "admin"
     secret_key: str = ""
     secure: bool = False
     region: str = ""
-
-    class Config:
-        env_prefix = "MINIO_"
 
     def safe_info(self) -> dict[str, Any]:
         """返回遮蔽密钥的连接信息."""

@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from pydantic_settings import SettingsConfigDict
+
 from mcp_base.config import BaseConfig
 
 
@@ -12,6 +14,8 @@ class Neo4jConfig(BaseConfig):
     (如 NEO4J_URI, NEO4J_USER).
     """
 
+    model_config = SettingsConfigDict(env_prefix="NEO4J_")
+
     uri: str = "bolt://localhost:7687"
     user: str = "neo4j"
     password: str = ""
@@ -19,9 +23,6 @@ class Neo4jConfig(BaseConfig):
     max_connection_lifetime: int = 3600
     max_connection_pool_size: int = 50
     connection_timeout: int = 30
-
-    class Config:
-        env_prefix = "NEO4J_"
 
     def safe_info(self) -> dict[str, Any]:
         """返回遮蔽密码的连接信息字典."""

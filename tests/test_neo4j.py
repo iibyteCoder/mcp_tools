@@ -1,11 +1,11 @@
 """Neo4j MCP 工具集成测试 — 需要本地/可访问的 Neo4j 实例."""
 
 import pytest
-from conftest import NEO4J_CONFIG  # type: ignore[import-untyped]
 
 from mcp_neo4j.config import Neo4jConfig
 from mcp_neo4j.connection import Neo4jConnection
 from mcp_neo4j.tools import build_dispatch, get_all_definitions
+from tests.conftest import NEO4J_CONFIG
 
 # ── Fixtures ──
 

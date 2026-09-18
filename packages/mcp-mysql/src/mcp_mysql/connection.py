@@ -62,6 +62,7 @@ class MySQLConnection:
             "db": conn_params.get("database"),
             "charset": conn_params.get("charset", "utf8mb4"),
             "autocommit": conn_params.get("autocommit", True),
+            "connect_timeout": conn_params.get("connection_timeout", 10),
             "minsize": 1,
             "maxsize": 10,
         }

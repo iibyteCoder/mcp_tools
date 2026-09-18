@@ -1,11 +1,11 @@
 """Redis MCP 工具集成测试 — 需要本地/可访问的 Redis 实例."""
 
 import pytest
-from conftest import REDIS_CONFIG  # type: ignore[import-untyped]
 
 from mcp_redis.config import RedisConfig
 from mcp_redis.connection import RedisConnection
 from mcp_redis.tools import build_dispatch, get_all_definitions
+from tests.conftest import REDIS_CONFIG
 
 TEST_PREFIX = "_mcp_test_"
 

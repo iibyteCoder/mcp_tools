@@ -1,12 +1,13 @@
 """MinIO MCP 工具集成测试 — 需要本地/可访问的 MinIO 实例."""
 
 import base64
+
 import pytest
 
-from conftest import MINIO_CONFIG  # type: ignore[import-untyped]
 from mcp_minio.config import MinioConfig
 from mcp_minio.connection import MinioConnection
 from mcp_minio.tools import build_dispatch, get_all_definitions
+from tests.conftest import MINIO_CONFIG
 
 TEST_BUCKET = "mcp-test-bucket"
 TEST_PREFIX = "mcp_test_"
@@ -110,7 +111,7 @@ async def test_bucket_exists(dispatch):
 @pytest.mark.asyncio
 async def test_put_get_object(dispatch):
     name = f"{TEST_PREFIX}hello.txt"
-    content = "Hello MinIO MCP!".encode("utf-8")
+    content = b"Hello MinIO MCP!"
     b64_data = base64.b64encode(content).decode("utf-8")
 
     # PUT
