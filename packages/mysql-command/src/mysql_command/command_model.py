@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from mysql_command.profile_models import ProfileName, ProfileSettingsPatch
 
 
 class CommandGroup(str, Enum):
@@ -68,6 +70,7 @@ class ExitCode(IntEnum):
     SUCCESS = 0
     INVALID_ARGUMENT = 2
     INPUT_ERROR = 3
+    PROFILE_ERROR = 4
     INTERNAL_ERROR = 70
 
 
@@ -85,6 +88,13 @@ class DiagnosticErrorType(str, Enum):
     INVALID_PARAMS_TYPE = "invalid_params_type"
     SQL_PARSE = "sql_parse"
     POLICY_VIOLATION = "policy_violation"
+    PROFILE_NOT_FOUND = "profile_not_found"
+    PROFILE_REGISTRY_CORRUPT = "profile_registry_corrupt"
+    PROFILE_REGISTRY_VERSION = "profile_registry_version_unsupported"
+    PROFILE_REGISTRY_LOCKED = "profile_registry_locked"
+    PROFILE_CONFLICT = "profile_conflict"
+    SECRET_STORE = "secret_store_error"
+    PROFILE_VALIDATION = "profile_validation_failed"
 
 
 class ErrorCode(str, Enum):
@@ -95,6 +105,14 @@ class ErrorCode(str, Enum):
     UNKNOWN_COMMAND = "unknown_command"
     INVALID_SQL = "invalid_sql"
     UNSUPPORTED_SQL = "unsupported_sql"
+    PROFILE_NOT_FOUND = "profile_not_found"
+    PROFILE_REGISTRY_CORRUPT = "profile_registry_corrupt"
+    PROFILE_REGISTRY_VERSION = "profile_registry_version_unsupported"
+    PROFILE_REGISTRY_LOCKED = "profile_registry_locked"
+    PROFILE_CONFLICT = "profile_conflict"
+    PROFILE_INVALID = "profile_invalid"
+    SECRET_STORE = "secret_store_error"
+    PROFILE_VALIDATION_FAILED = "profile_validation_failed"
     INTERNAL_ERROR = "internal_error"
 
 
@@ -128,6 +146,7 @@ class SqlInputSpec:
             raise ValueError("stdin SQL cannot carry text or a path")
         if self.source is InputSource.PARAMS_FILE:
             raise ValueError("params-file is not a SQL input source")
+
     @classmethod
     def inline(cls, text: str) -> SqlInputSpec:
         """Create an inline SQL input specification."""
@@ -164,6 +183,14 @@ class CommandRequest:
     output_mode: OutputMode = OutputMode.JSON
     sql_input: SqlInputSpec | None = None
     params_file: Path | None = None
+    selected_profile: ProfileName | None = None
+    profile_name: ProfileName | None = None
+    profile_new_name: ProfileName | None = None
+    profile_path: Path | None = None
+    profile_settings: ProfileSettingsPatch | None = None
+    profile_password: str | None = field(default=None, repr=False)
+    profile_clear_password: bool = False
+    profile_no_bind: bool = False
 
 
 PROFILE_ROUTES: tuple[CommandRoute, ...] = (

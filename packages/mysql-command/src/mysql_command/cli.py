@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from typing import TYPE_CHECKING
 
@@ -40,9 +41,14 @@ from mysql_command.output_model import (
     ErrorBody,
     ErrorEnvelope,
     ParameterDiagnostic,
+    ProfileCommandData,
     SqlDiagnostic,
     SuccessEnvelope,
 )
+from mysql_command.profile_commands import execute_profile_command
+from mysql_command.profile_service import ProfileService, ProfileServiceError, ProfileServiceErrorCode
+from mysql_command.profile_store import JsonProfileStore, ProfileStoreError
+from mysql_command.secret_store import KeyringSecretStore
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -56,12 +62,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         if request.group is CommandGroup.HELP:
             parser.print_help()
             return int(ExitCode.SUCCESS)
-        stdin_text = _read_stdin_if_needed(request.sql_input is not None and request.sql_input.source is InputSource.STDIN)
+        if request.group is CommandGroup.PROFILE:
+            profile_data: ProfileCommandData = asyncio.run(
+                execute_profile_command(
+                    request,
+                    ProfileService(JsonProfileStore(), KeyringSecretStore()),
+                )
+            )
+            envelope = SuccessEnvelope(
+                ok=True,
+                data=profile_data,
+                meta=DiagnosticMetadata(command_group=request.group, action=request.action, input_source=None),
+            )
+            _write_json(envelope, sys.stdout)
+            return int(ExitCode.SUCCESS)
+        stdin_text = _read_stdin_if_needed(
+            request.sql_input is not None and request.sql_input.source is InputSource.STDIN
+        )
         loaded = load_inputs(request, stdin_text=stdin_text)
-        data = _diagnose(request, loaded)
+        diagnostic_data: CommandDiagnosticData = _diagnose(request, loaded)
         envelope = SuccessEnvelope(
             ok=True,
-            data=data,
+            data=diagnostic_data,
             meta=DiagnosticMetadata(
                 command_group=request.group,
                 action=request.action,
@@ -75,6 +97,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     except CliFailure as cli_failure:
         _write_failure(cli_failure, sys.stdout, request=request)
         return int(cli_failure.exit_code)
+    except ProfileStoreError as profile_error:
+        failure = _profile_store_failure(profile_error)
+        _write_failure(failure, sys.stdout, request=request)
+        return int(failure.exit_code)
+    except ProfileServiceError as profile_error:
+        failure = _profile_service_failure(profile_error)
+        _write_failure(failure, sys.stdout, request=request)
+        return int(failure.exit_code)
     except Exception:
         internal_failure = CliFailure(
             code=ErrorCode.INTERNAL_ERROR,
@@ -195,15 +225,56 @@ def _write_failure(
         meta=DiagnosticMetadata(
             command_group=request.group if request is not None else None,
             action=request.action if request is not None else None,
-            input_source=(
-                request.sql_input.source
-                if request is not None and request.sql_input is not None
-                else None
-            ),
+            input_source=(request.sql_input.source if request is not None and request.sql_input is not None else None),
             output_mode=OutputMode.JSON,
         ),
     )
     _write_json(envelope, stream)
+
+
+def _profile_store_failure(error: ProfileStoreError) -> CliFailure:
+    mapping = {
+        "profile_registry_corrupt": (ErrorCode.PROFILE_REGISTRY_CORRUPT, DiagnosticErrorType.PROFILE_REGISTRY_CORRUPT),
+        "profile_registry_version_unsupported": (
+            ErrorCode.PROFILE_REGISTRY_VERSION,
+            DiagnosticErrorType.PROFILE_REGISTRY_VERSION,
+        ),
+        "profile_registry_locked": (ErrorCode.PROFILE_REGISTRY_LOCKED, DiagnosticErrorType.PROFILE_REGISTRY_LOCKED),
+    }
+    code, error_type = mapping.get(
+        error.code.value,
+        (ErrorCode.INPUT_ERROR, DiagnosticErrorType.FILE_READ_ERROR),
+    )
+    exit_code = ExitCode.PROFILE_ERROR if code is not ErrorCode.INPUT_ERROR else ExitCode.INPUT_ERROR
+    return CliFailure(
+        code=code,
+        message=error.message,
+        retryable=False,
+        details=(ErrorDetail(error_type=error_type),),
+        exit_code=exit_code,
+    )
+
+
+def _profile_service_failure(error: ProfileServiceError) -> CliFailure:
+    mapping = {
+        ProfileServiceErrorCode.NOT_FOUND: (ErrorCode.PROFILE_NOT_FOUND, DiagnosticErrorType.PROFILE_NOT_FOUND),
+        ProfileServiceErrorCode.CONFLICT: (ErrorCode.PROFILE_CONFLICT, DiagnosticErrorType.PROFILE_CONFLICT),
+        ProfileServiceErrorCode.INVALID: (ErrorCode.PROFILE_INVALID, DiagnosticErrorType.ARGUMENT_SYNTAX),
+        ProfileServiceErrorCode.SECRET_MISSING: (ErrorCode.SECRET_STORE, DiagnosticErrorType.SECRET_STORE),
+        ProfileServiceErrorCode.SECRET_STORE: (ErrorCode.SECRET_STORE, DiagnosticErrorType.SECRET_STORE),
+        ProfileServiceErrorCode.VALIDATION_FAILED: (
+            ErrorCode.PROFILE_VALIDATION_FAILED,
+            DiagnosticErrorType.PROFILE_VALIDATION,
+        ),
+    }
+    code, error_type = mapping[error.code]
+    return CliFailure(
+        code=code,
+        message=error.message,
+        retryable=False,
+        details=(ErrorDetail(error_type=error_type),),
+        exit_code=ExitCode.PROFILE_ERROR,
+    )
 
 
 __all__ = ["__version__", "main"]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from mysql_command.command_model import OutputMode
+from mysql_command.command_model import CommandAction, CommandGroup, OutputMode
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -67,11 +67,50 @@ class CommandDiagnosticData:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileView:
+    """Secret-free profile representation used by JSON output."""
+
+    name: str
+    host: str
+    port: int
+    user: str
+    database: str | None
+    charset: str
+    connect_timeout: float
+    read_timeout: float
+    password_present: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BindingView:
+    """Serializable directory binding representation."""
+
+    path: Path
+    profile: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileCommandData:
+    """Successful result for one profile management operation."""
+
+    status: str
+    command_group: CommandGroup
+    action: CommandAction
+    profile: ProfileView | None = None
+    profiles: tuple[ProfileView, ...] = ()
+    binding: BindingView | None = None
+    removed_bindings: int | None = None
+    unbound: bool | None = None
+    validated: bool | None = None
+    connection_attempted: bool | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SuccessEnvelope:
     """Top-level success envelope."""
 
     ok: bool
-    data: CommandDiagnosticData
+    data: CommandDiagnosticData | ProfileCommandData
     meta: DiagnosticMetadata
 
 

@@ -22,6 +22,7 @@ from mysql_command.command_model import (
     SqlInputSpec,
 )
 from mysql_command.errors import CliFailure, ErrorDetail
+from mysql_command.profile_models import ProfileName, ProfileSettingsPatch
 
 
 class ParserExit(Exception):
@@ -39,11 +40,13 @@ class CliArgumentParser(argparse.ArgumentParser):
 
     def error(self, message: str) -> NoReturn:
         error_type = (
-            DiagnosticErrorType.UNKNOWN_COMMAND
-            if "invalid choice" in message
-            else DiagnosticErrorType.ARGUMENT_SYNTAX
+            DiagnosticErrorType.UNKNOWN_COMMAND if "invalid choice" in message else DiagnosticErrorType.ARGUMENT_SYNTAX
         )
-        code = ErrorCode.UNKNOWN_COMMAND if error_type is DiagnosticErrorType.UNKNOWN_COMMAND else ErrorCode.INVALID_ARGUMENT
+        code = (
+            ErrorCode.UNKNOWN_COMMAND
+            if error_type is DiagnosticErrorType.UNKNOWN_COMMAND
+            else ErrorCode.INVALID_ARGUMENT
+        )
         raise CliFailure(
             code=code,
             message="未知命令" if error_type is DiagnosticErrorType.UNKNOWN_COMMAND else "命令参数无效",
@@ -65,6 +68,7 @@ def build_parser() -> CliArgumentParser:
         description="JSON-only MySQL command line foundation.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--profile", dest="_selected_profile", help="select a profile for this invocation")
     subparsers = parser.add_subparsers(dest="_route_group")
     help_parser = subparsers.add_parser("help", help="show command help")
     help_parser.set_defaults(_command_group=CommandGroup.HELP, _command_action=CommandAction.HELP)
@@ -82,6 +86,8 @@ def build_parser() -> CliArgumentParser:
             action_parsers[route.group] = action_subparsers
         action_parser = action_subparsers.add_parser(route.action.value, help=f"{route.action.value} action")
         action_parser.set_defaults(_command_group=route.group, _command_action=route.action)
+        if route.group is CommandGroup.PROFILE:
+            _add_profile_arguments(action_parser, route.action)
         if route in SQL_ROUTES:
             action_parser.add_argument("--sql", dest="_sql", help="inline SQL text")
             action_parser.add_argument("--sql-file", dest="_sql_file", type=Path, help="SQL file path; - reads stdin")
@@ -95,11 +101,104 @@ def parse_command_request(parser: argparse.ArgumentParser, argv: Sequence[str]) 
     namespace = parser.parse_args(list(argv))
     group = _required_group(namespace)
     action = _required_action(namespace)
+    selected_profile = _profile_name(getattr(namespace, "_selected_profile", None), argument="--profile")
     if group is CommandGroup.HELP:
-        return CommandRequest(group=group, action=action)
+        return CommandRequest(group=group, action=action, selected_profile=selected_profile)
     if group is CommandGroup.SQL:
-        return _sql_request(namespace, group=group, action=action)
-    return CommandRequest(group=group, action=action)
+        request = _sql_request(namespace, group=group, action=action)
+        return _with_selected_profile(request, selected_profile)
+    if group is CommandGroup.PROFILE:
+        return _profile_request(namespace, group=group, action=action, selected_profile=selected_profile)
+    return CommandRequest(group=group, action=action, selected_profile=selected_profile)
+
+
+def _add_profile_arguments(parser: argparse.ArgumentParser, action: CommandAction) -> None:
+    if action in {
+        CommandAction.SHOW,
+        CommandAction.SET,
+        CommandAction.VALIDATE,
+        CommandAction.BIND,
+        CommandAction.REMOVE,
+    }:
+        parser.add_argument("_profile_name_arg", metavar="NAME")
+    elif action is CommandAction.RENAME:
+        parser.add_argument("_profile_name_arg", metavar="OLD")
+        parser.add_argument("_profile_new_name_arg", metavar="NEW")
+    if action in {CommandAction.BIND, CommandAction.UNBIND}:
+        parser.add_argument("--path", dest="_profile_path", type=Path)
+    if action is CommandAction.SET:
+        parser.add_argument("--host", dest="_host")
+        parser.add_argument("--port", dest="_port", type=int)
+        parser.add_argument("--user", dest="_user")
+        parser.add_argument("--database", dest="_database")
+        parser.add_argument("--no-database", dest="_no_database", action="store_true")
+        parser.add_argument("--charset", dest="_charset")
+        parser.add_argument("--connect-timeout", dest="_connect_timeout", type=float)
+        parser.add_argument("--read-timeout", dest="_read_timeout", type=float)
+        parser.add_argument("--password", dest="_password")
+        parser.add_argument("--no-password", dest="_no_password", action="store_true")
+        parser.add_argument("--no-bind", dest="_no_bind", action="store_true")
+
+
+def _profile_request(
+    namespace: argparse.Namespace,
+    *,
+    group: CommandGroup,
+    action: CommandAction,
+    selected_profile: ProfileName | None,
+) -> CommandRequest:
+    name = _profile_name(getattr(namespace, "_profile_name_arg", None), argument="NAME")
+    new_name = _profile_name(getattr(namespace, "_profile_new_name_arg", None), argument="NEW")
+    required_name_actions = {
+        CommandAction.SHOW,
+        CommandAction.SET,
+        CommandAction.VALIDATE,
+        CommandAction.BIND,
+        CommandAction.RENAME,
+        CommandAction.REMOVE,
+    }
+    if action in required_name_actions and name is None:
+        raise _profile_argument_failure("profile name is required", "NAME")
+    if action is CommandAction.RENAME and new_name is None:
+        raise _profile_argument_failure("new profile name is required", "NEW")
+    patch = None
+    password = _optional_str(namespace, "_password")
+    clear_password = bool(getattr(namespace, "_no_password", False))
+    no_bind = bool(getattr(namespace, "_no_bind", False))
+    if action is CommandAction.SET:
+        patch = ProfileSettingsPatch(
+            host=_optional_str(namespace, "_host"),
+            port=_optional_int(namespace, "_port"),
+            user=_optional_str(namespace, "_user"),
+            database=None if getattr(namespace, "_no_database", False) else _optional_str(namespace, "_database"),
+            charset=_optional_str(namespace, "_charset"),
+            connect_timeout=_optional_float(namespace, "_connect_timeout"),
+            read_timeout=_optional_float(namespace, "_read_timeout"),
+            clear_database=bool(getattr(namespace, "_no_database", False)),
+        )
+    return CommandRequest(
+        group=group,
+        action=action,
+        selected_profile=selected_profile,
+        profile_name=name,
+        profile_new_name=new_name,
+        profile_path=_optional_path(namespace, "_profile_path"),
+        profile_settings=patch,
+        profile_password=password,
+        profile_clear_password=clear_password,
+        profile_no_bind=no_bind,
+    )
+
+
+def _with_selected_profile(request: CommandRequest, selected_profile: ProfileName | None) -> CommandRequest:
+    return CommandRequest(
+        group=request.group,
+        action=request.action,
+        output_mode=request.output_mode,
+        sql_input=request.sql_input,
+        params_file=request.params_file,
+        selected_profile=selected_profile,
+    )
 
 
 def _sql_request(
@@ -171,6 +270,47 @@ def _optional_str(namespace: argparse.Namespace, name: str) -> str | None:
     if value is None or isinstance(value, str):
         return value
     raise TypeError(f"参数 {name} 类型无效")
+
+
+def _optional_int(namespace: argparse.Namespace, name: str) -> int | None:
+    value = getattr(namespace, name, None)
+    if value is None or isinstance(value, int):
+        return value
+    raise TypeError(f"参数 {name} 类型无效")
+
+
+def _optional_float(namespace: argparse.Namespace, name: str) -> float | None:
+    value = getattr(namespace, name, None)
+    if value is None or isinstance(value, float):
+        return value
+    raise TypeError(f"参数 {name} 类型无效")
+
+
+def _profile_name(value: object, *, argument: str) -> ProfileName | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"参数 {argument} 类型无效")
+    try:
+        return ProfileName(value=value)
+    except ValueError as exc:
+        raise CliFailure(
+            code=ErrorCode.INVALID_ARGUMENT,
+            message="profile name is invalid",
+            retryable=False,
+            details=(ErrorDetail(error_type=DiagnosticErrorType.ARGUMENT_SYNTAX, argument=argument),),
+            exit_code=ExitCode.INVALID_ARGUMENT,
+        ) from exc
+
+
+def _profile_argument_failure(message: str, argument: str) -> CliFailure:
+    return CliFailure(
+        code=ErrorCode.INVALID_ARGUMENT,
+        message=message,
+        retryable=False,
+        details=(ErrorDetail(error_type=DiagnosticErrorType.ARGUMENT_SYNTAX, argument=argument),),
+        exit_code=ExitCode.INVALID_ARGUMENT,
+    )
 
 
 def _optional_path(namespace: argparse.Namespace, name: str) -> Path | None:

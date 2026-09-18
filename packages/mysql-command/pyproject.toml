@@ -5,6 +5,9 @@ description = "JSON-only MySQL command line foundation"
 requires-python = ">=3.10"
 dependencies = [
     "mysql-client",
+    "filelock>=3.16.0",
+    "keyring>=25.6.0",
+    "platformdirs>=4.3.0",
 ]
 
 [project.scripts]
