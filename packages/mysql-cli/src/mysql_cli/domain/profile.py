@@ -139,6 +139,7 @@ class ProfileRecord:
 
     name: ProfileName
     settings: ProfileSettings
+    description: str | None = None
     password_present: bool = False
 
 
@@ -190,8 +191,14 @@ class ProfileSetRequest:
 
     name: ProfileName
     settings: ProfileSettingsPatch
+    description: str | None = None
+    clear_description: bool = False
     password: str | None = field(default=None, repr=False)
     clear_password: bool = False
+
+    def __post_init__(self) -> None:
+        if self.description is not None and self.clear_description:
+            raise ValueError("description and clear_description cannot both be supplied")
 
 
 def normalize_directory(path: Path) -> Path:

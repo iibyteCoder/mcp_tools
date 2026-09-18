@@ -20,7 +20,7 @@ from mysql_client.domain.values import DatabaseName, DatabaseValue, SqlText
 SERVER_INSPECT_SQL = SqlText(
     "SELECT VERSION() AS server_version, @@version_comment AS version_comment, "
     "@@hostname AS hostname, @@port AS server_port, DATABASE() AS current_database, "
-    "CURRENT_USER() AS current_user, @@character_set_server AS character_set_server, "
+    "CURRENT_USER() AS `current_user`, @@character_set_server AS character_set_server, "
     "@@collation_server AS collation_server"
 )
 SERVER_CAPABILITIES_SQL = SqlText(

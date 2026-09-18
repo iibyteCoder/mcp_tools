@@ -142,18 +142,10 @@ class ProfileService:
             try:
                 settings = ProfileSettings(
                     host=request.settings.host,
-                    port=(
-                        DEFAULT_MYSQL_PORT
-                        if request.settings.port is None
-                        else request.settings.port
-                    ),
+                    port=(DEFAULT_MYSQL_PORT if request.settings.port is None else request.settings.port),
                     user=request.settings.user,
                     database=request.settings.database,
-                    charset=(
-                        DEFAULT_MYSQL_CHARSET
-                        if request.settings.charset is None
-                        else request.settings.charset
-                    ),
+                    charset=(DEFAULT_MYSQL_CHARSET if request.settings.charset is None else request.settings.charset),
                     connect_timeout=(
                         DEFAULT_CONNECT_TIMEOUT_SECONDS
                         if request.settings.connect_timeout is None
@@ -175,6 +167,15 @@ class ProfileService:
                 raise ProfileServiceError(ProfileServiceErrorCode.INVALID, "profile settings are invalid") from exc
             password_present = existing.password_present
 
+        if request.clear_description:
+            description = None
+        elif request.description is not None:
+            description = request.description
+        elif existing is None:
+            description = None
+        else:
+            description = existing.description
+
         if request.password is not None:
             if not request.password:
                 raise ProfileServiceError(ProfileServiceErrorCode.INVALID, "password cannot be empty")
@@ -184,7 +185,12 @@ class ProfileService:
             self._delete_secret(request.name)
             password_present = False
 
-        record = ProfileRecord(name=request.name, settings=settings, password_present=password_present)
+        record = ProfileRecord(
+            name=request.name,
+            settings=settings,
+            description=description,
+            password_present=password_present,
+        )
 
         def update(registry: ProfileRegistry) -> ProfileRegistry:
             profiles = tuple(record if item.name == request.name else item for item in registry.profiles)

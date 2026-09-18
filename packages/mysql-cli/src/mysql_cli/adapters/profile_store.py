@@ -120,6 +120,7 @@ def _registry_to_json(registry: ProfileRegistry) -> dict[str, JsonValue]:
                     "connect_timeout": record.settings.connect_timeout,
                     "read_timeout": record.settings.read_timeout,
                 },
+                "description": record.description,
                 "password_present": record.password_present,
             }
         )
@@ -156,7 +157,11 @@ def _registry_from_json(value: object) -> ProfileRegistry:
 def _profile_from_json(value: JsonValue) -> ProfileRecord:
     if not is_json_object(value):
         raise ProfileStoreError(RegistryErrorCode.CORRUPT, "profile record is invalid")
-    if set(value) != {"name", "settings", "password_present"}:
+    keys = set(value)
+    if keys not in (
+        {"name", "settings", "password_present"},
+        {"name", "settings", "description", "password_present"},
+    ):
         raise ProfileStoreError(RegistryErrorCode.CORRUPT, "profile record is invalid")
     name = _string(value, "name")
     settings_value = value.get("settings")
@@ -184,7 +189,12 @@ def _profile_from_json(value: JsonValue) -> ProfileRecord:
     password_present = value.get("password_present")
     if not isinstance(password_present, bool):
         raise ProfileStoreError(RegistryErrorCode.CORRUPT, "profile password metadata is invalid")
-    return ProfileRecord(name=ProfileName(value=name), settings=settings, password_present=password_present)
+    return ProfileRecord(
+        name=ProfileName(value=name),
+        settings=settings,
+        description=_optional_string(value, "description"),
+        password_present=password_present,
+    )
 
 
 def _binding_from_json(value: JsonValue) -> DirectoryBinding:

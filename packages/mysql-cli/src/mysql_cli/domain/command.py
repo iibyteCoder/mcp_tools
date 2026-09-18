@@ -216,6 +216,8 @@ class CommandRequest:
     profile_new_name: ProfileName | None = None
     profile_path: Path | None = None
     profile_settings: ProfileSettingsPatch | None = None
+    profile_description: str | None = None
+    profile_clear_description: bool = False
     profile_password: str | None = field(default=None, repr=False)
     profile_clear_password: bool = False
     schema_database: DatabaseName | None = None
