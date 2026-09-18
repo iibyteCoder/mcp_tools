@@ -75,7 +75,6 @@ class _AiomysqlModule(Protocol):
         db: str | None,
         charset: str,
         connect_timeout: float,
-        read_timeout: float,
         autocommit: bool,
     ) -> Awaitable[_RawConnection]: ...
 
@@ -94,7 +93,6 @@ class AiomysqlDriverFactory:
                 db=config.database,
                 charset=config.charset,
                 connect_timeout=config.connect_timeout_seconds,
-                read_timeout=config.read_timeout_seconds,
                 autocommit=False,
             )
         except asyncio.CancelledError:

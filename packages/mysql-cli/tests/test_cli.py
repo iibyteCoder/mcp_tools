@@ -125,9 +125,7 @@ def test_stdin_sql_file_preserves_source(cli_environment: dict[str, str]) -> Non
     assert result.stderr == ""
 
 
-def test_params_object_is_validated_without_echoing_values(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_params_object_is_validated_without_echoing_values(cli_environment: dict[str, str], tmp_path: Path) -> None:
     params_file = tmp_path / "params.json"
     params_file.write_text('{"user":"alice","secret":"do-not-echo"}', encoding="utf-8")
 
@@ -177,9 +175,7 @@ def test_params_top_level_must_be_object_or_array(
     assert as_object(details[0])["error_type"] == "invalid_params_type"
 
 
-def test_invalid_params_json_is_distinguishable(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_invalid_params_json_is_distinguishable(cli_environment: dict[str, str], tmp_path: Path) -> None:
     params_file = tmp_path / "params.json"
     params_file.write_text("{not-json}", encoding="utf-8")
 
@@ -281,3 +277,38 @@ def test_missing_file_is_typed(cli_environment: dict[str, str], tmp_path: Path) 
     error = as_object(payload["error"])
     details = as_array(error["details"])
     assert as_object(details[0])["error_type"] == "file_not_found"
+
+
+def test_real_profile_read_only_commands_are_process_level(cli_environment: dict[str, str]) -> None:
+    profile_name = os.environ.get("DB_MYSQL_REAL_PROFILE")
+    if not profile_name:
+        pytest.skip("set DB_MYSQL_REAL_PROFILE to run the real read-only profile E2E")
+
+    commands = (
+        ("profile list", ("profile", "list")),
+        ("profile show", ("profile", "show", profile_name)),
+        ("profile validate", ("profile", "validate", profile_name)),
+        ("sql read", ("--profile", profile_name, "sql", "read", "--sql", "SELECT 1")),
+        ("server inspect", ("--profile", profile_name, "server", "inspect")),
+        ("schema databases", ("--profile", profile_name, "schema", "databases")),
+        ("sql explain", ("--profile", profile_name, "sql", "explain", "--sql", "EXPLAIN SELECT 1")),
+    )
+
+    for label, arguments in commands:
+        result = run_cli(cli_environment, "--json", *arguments)
+        payload = decode_one_json(result.stdout)
+        assert result.returncode == 0, f"{label}: {payload}"
+        assert payload["ok"] is True, f"{label}: {payload}"
+        assert '"password":' not in result.stdout
+        data = as_object(payload["data"])
+        if label == "profile list":
+            profiles = as_array(data["profiles"])
+            selected = next(
+                item_object for item in profiles if (item_object := as_object(item))["name"] == profile_name
+            )
+            assert "description" in selected
+            assert "password" not in selected
+        elif label == "profile show":
+            profile = as_object(data["profile"])
+            assert "description" in profile
+            assert "password" not in profile

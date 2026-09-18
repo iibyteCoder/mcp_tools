@@ -7,7 +7,8 @@ The profile commands manage saved connection settings. SQL commands execute agai
 ```powershell
 db-mysql --json profile list
 db-mysql --json profile show billing-dev
-db-mysql --json profile set billing-dev --host db.example --port 3306 --user app --database billing
+db-mysql --json profile set billing-dev --host db.example --port 3306 --user app --database billing --description "billing read-only target"
+db-mysql --json profile set billing-dev --no-description
 db-mysql --json profile validate billing-dev
 db-mysql --json profile bind billing-dev --path 'D:\projects\billing'
 db-mysql --json profile unbind --path 'D:\projects\billing'
@@ -15,7 +16,9 @@ db-mysql --json profile rename billing-dev billing-staging
 db-mysql --json profile remove obsolete-profile
 ```
 
-`profile list` discovers names and binding metadata. `profile show NAME` returns nonsecret saved settings with credentials masked. `profile set NAME` creates or updates a profile; omitted settings remain unchanged. Password entry and storage must go through the CLI's secure configuration or credential store. Never put a password in a command example, output, log, error, or report.
+`profile list` discovers names, nonsecret settings and optional descriptions. `profile show NAME` returns the same nonsecret data with credentials masked. `profile set NAME` creates or updates a profile; omitted settings and descriptions remain unchanged. `--no-description` clears a saved description. Password entry and storage must go through the CLI's secure configuration or credential store. Never put a password in a command example, output, log, error, or report.
+
+Descriptions are usage notes only; never store passwords, tokens, or other connection secrets in them.
 
 `profile validate NAME` performs an explicit connection validation for that profile. It does not change the profile or directory bindings. A successful ordinary operation can establish access for that operation, but it does not replace an explicit validation when validation is requested.
 

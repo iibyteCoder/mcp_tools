@@ -72,3 +72,9 @@ def test_stats_without_table_binds_null_filter() -> None:
 
     assert definition.parameters == (None, None, None)
     assert definition.sql.count("%s") == len(definition.parameters)
+
+
+def test_server_inspect_quotes_reserved_current_user_alias() -> None:
+    definition = build_inspection_query(ServerInspectRequest())
+
+    assert "CURRENT_USER() AS `current_user`" in definition.sql

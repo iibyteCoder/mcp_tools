@@ -34,6 +34,8 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
             ProfileSetRequest(
                 name=_required_name(request),
                 settings=settings,
+                description=request.profile_description,
+                clear_description=request.profile_clear_description,
                 password=request.profile_password,
                 clear_password=request.profile_clear_password,
             )
@@ -84,6 +86,7 @@ def _profile_view(profile: ProfileRecord) -> ProfileView:
     settings = profile.settings
     return ProfileView(
         name=profile.name.value,
+        description=profile.description,
         host=settings.host,
         port=settings.port,
         user=settings.user,

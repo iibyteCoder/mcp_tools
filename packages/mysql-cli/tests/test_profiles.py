@@ -10,7 +10,12 @@ import pytest
 from filelock import FileLock
 
 from mysql_cli.adapters.profile_store import JsonProfileStore
-from mysql_cli.application.profile import ProfileService, ProfileServiceError, ProfileValidator
+from mysql_cli.application.profile import (
+    MySqlSessionValidator,
+    ProfileService,
+    ProfileServiceError,
+    ProfileValidator,
+)
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
 from mysql_cli.domain.profile import (
     ProfileName,
@@ -22,9 +27,10 @@ from mysql_cli.ports.profile_store import ProfileStoreError
 from mysql_cli.ports.secret_store import SecretStore
 
 if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
     from pathlib import Path
 
-    from mysql_client import MySqlConnectionConfig
+    from mysql_client import DriverConnection, DriverCursor, MySqlConnectionConfig
 
 
 @dataclass
@@ -47,6 +53,38 @@ class FakeValidator(ProfileValidator):
 
     async def validate(self, config: MySqlConnectionConfig) -> None:
         self.configs.append(config)
+
+
+class ValidationConnection:
+    thread_id = None
+
+    def __init__(self) -> None:
+        self.close_count = 0
+
+    def cursor(self) -> AbstractAsyncContextManager[DriverCursor]:
+        raise AssertionError("profile validation must not open a cursor")
+
+    async def begin(self) -> None:
+        raise AssertionError("profile validation must not begin a transaction")
+
+    async def commit(self) -> None:
+        raise AssertionError("profile validation must not commit")
+
+    async def rollback(self) -> None:
+        raise AssertionError("profile validation must not roll back")
+
+    async def close(self) -> None:
+        self.close_count += 1
+
+
+class ValidationFactory:
+    def __init__(self, connection: ValidationConnection) -> None:
+        self.connection = connection
+        self.configs: list[MySqlConnectionConfig] = []
+
+    async def connect(self, config: MySqlConnectionConfig) -> DriverConnection:
+        self.configs.append(config)
+        return self.connection
 
 
 def make_service(tmp_path: Path) -> tuple[ProfileService, FakeSecretStore, FakeValidator, JsonProfileStore]:
@@ -85,6 +123,66 @@ def test_set_updates_only_explicit_fields_and_keeps_password_secret(tmp_path: Pa
     assert updated.password_present is True
     assert secrets.values[created.name] == "never-print-this"
     assert "never-print-this" not in repr(updated)
+
+
+def test_description_is_persisted_updated_and_cleared(tmp_path: Path) -> None:
+    service, _, _, store = make_service(tmp_path)
+    created = service.set(profile_request())
+    assert created.description is None
+
+    described = service.set(
+        ProfileSetRequest(
+            name=created.name,
+            settings=ProfileSettingsPatch(),
+            description="read-only test database",
+        )
+    )
+    assert described.description == "read-only test database"
+    assert service.require(created.name).description == "read-only test database"
+
+    cleared = service.set(
+        ProfileSetRequest(
+            name=created.name,
+            settings=ProfileSettingsPatch(),
+            clear_description=True,
+        )
+    )
+    assert cleared.description is None
+    assert json.loads(store.path.read_text(encoding="utf-8"))["profiles"][0]["description"] is None
+
+
+def test_legacy_profile_without_description_reads_as_empty_value(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "db-mysql.profile-registry",
+                "version": 1,
+                "profiles": [
+                    {
+                        "name": "legacy",
+                        "settings": {
+                            "host": "db.example",
+                            "port": 3306,
+                            "user": "alice",
+                            "database": None,
+                            "charset": "utf8mb4",
+                            "connect_timeout": 10.0,
+                            "read_timeout": 30.0,
+                        },
+                        "password_present": False,
+                    }
+                ],
+                "bindings": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    profile = JsonProfileStore(path).read().find(ProfileName(value="legacy"))
+
+    assert profile is not None
+    assert profile.description is None
 
 
 def test_set_never_changes_directory_bindings(tmp_path: Path) -> None:
@@ -168,6 +266,39 @@ def test_validate_is_explicit_and_never_persists_password(tmp_path: Path) -> Non
     assert validator.configs[0].password.reveal() == "never-print-this"
     document = json.loads(store.path.read_text(encoding="utf-8"))
     assert "never-print-this" not in json.dumps(document)
+
+
+@pytest.mark.asyncio
+async def test_validate_uses_session_validator_and_closes_connection(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    secrets = FakeSecretStore({})
+    connection = ValidationConnection()
+    factory = ValidationFactory(connection)
+    service = ProfileService(
+        JsonProfileStore(path),
+        secrets,
+        MySqlSessionValidator(factory),
+        working_directory=tmp_path,
+    )
+    service.set(
+        ProfileSetRequest(
+            name=ProfileName(value="dev"),
+            settings=ProfileSettingsPatch(
+                host="db.example",
+                user="alice",
+                connect_timeout=3.0,
+                read_timeout=600.0,
+            ),
+            password="never-print-this",
+        )
+    )
+
+    validated = await service.validate(ProfileName(value="dev"))
+
+    assert validated.name == ProfileName(value="dev")
+    assert factory.configs[0].connect_timeout_seconds == 3.0
+    assert factory.configs[0].read_timeout_seconds == 600.0
+    assert connection.close_count == 1
 
 
 def test_corrupt_and_unsupported_registry_are_typed(tmp_path: Path) -> None:

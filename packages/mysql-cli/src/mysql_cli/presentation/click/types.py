@@ -10,7 +10,7 @@ from mysql_cli.domain.profile import ProfileName
 from mysql_client import DatabaseName, TableName, TransactionAction
 
 
-class _TypedParamType(click.ParamType):
+class _TypedParamType(click.ParamType[object, object]):
     """Convert a Click string directly into a strict domain value."""
 
     def __init__(self, name: str) -> None:

@@ -81,6 +81,7 @@ class ProfileView:
     """Secret-free profile representation used by JSON output."""
 
     name: str
+    description: str | None
     host: str
     port: int
     user: str

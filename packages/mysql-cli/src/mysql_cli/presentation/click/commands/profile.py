@@ -50,6 +50,8 @@ def profile_show(ctx: click.Context, name: ProfileName) -> None:
 @click.option("--charset", type=str)
 @click.option("--connect-timeout", type=POSITIVE_FLOAT)
 @click.option("--read-timeout", type=POSITIVE_FLOAT)
+@click.option("--description", type=str)
+@click.option("--no-description", is_flag=True)
 @click.option("--password", type=str)
 @click.option("--no-password", is_flag=True)
 @click.pass_context
@@ -64,6 +66,8 @@ def profile_set(
     charset: str | None,
     connect_timeout: float | None,
     read_timeout: float | None,
+    description: str | None,
+    no_description: bool,
     password: str | None,
     no_password: bool,
 ) -> None:
@@ -73,6 +77,11 @@ def profile_set(
         raise argument_failure("--database and --no-database cannot be used together", "--database/--no-database")
     if no_password and password is not None:
         raise argument_failure("--password and --no-password cannot be used together", "--password/--no-password")
+    if no_description and description is not None:
+        raise argument_failure(
+            "--description and --no-description cannot be used together",
+            "--description/--no-description",
+        )
     execute(
         ctx,
         CommandRequest(
@@ -89,6 +98,8 @@ def profile_set(
                 read_timeout=read_timeout,
                 clear_database=no_database,
             ),
+            profile_description=description,
+            profile_clear_description=no_description,
             profile_password=password,
             profile_clear_password=no_password,
         ),
@@ -111,7 +122,9 @@ def profile_validate(ctx: click.Context, name: ProfileName) -> None:
 def profile_bind(ctx: click.Context, name: ProfileName, path: Path | None) -> None:
     """Bind a profile to a directory."""
 
-    execute(ctx, CommandRequest(group=CommandGroup.PROFILE, action=CommandAction.BIND, profile_name=name, profile_path=path))
+    execute(
+        ctx, CommandRequest(group=CommandGroup.PROFILE, action=CommandAction.BIND, profile_name=name, profile_path=path)
+    )
 
 
 @profile.command("unbind")
