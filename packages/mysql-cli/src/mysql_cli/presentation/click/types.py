@@ -3,30 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import click
 
 from mysql_cli.domain.profile import ProfileName
 from mysql_client import DatabaseName, TableName, TransactionAction
 
-if TYPE_CHECKING:
 
-    class _TypedParamType(click.ParamType[object, object]):
-        """Static type surface for the Click parameter type base."""
+class _TypedParamType(click.ParamType):
+    """Convert a Click string directly into a strict domain value."""
 
-        def __init__(self, name: str) -> None:
-            self.name = name
-            super().__init__()
-
-else:
-
-    class _TypedParamType(click.ParamType):
-        """Runtime-compatible Click parameter type base."""
-
-        def __init__(self, name: str) -> None:
-            self.name = name
-            super().__init__()
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__()
 
 
 class _ProfileNameType(_TypedParamType):

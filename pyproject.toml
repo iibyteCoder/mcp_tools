@@ -48,3 +48,7 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = ["aiomysql"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mysql_cli.presentation.click.types"]
+disable_error_code = ["type-arg"]
