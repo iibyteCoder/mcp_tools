@@ -3,19 +3,30 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
 from mysql_cli.domain.profile import ProfileName
 from mysql_client import DatabaseName, TableName, TransactionAction
 
+if TYPE_CHECKING:
 
-class _TypedParamType(click.ParamType[object, object]):
-    """Convert a Click string directly into a strict domain value."""
+    class _TypedParamType(click.ParamType[object, object]):
+        """Static type surface for the Click parameter type base."""
 
-    def __init__(self, name: str) -> None:
-        self.name = name
-        super().__init__()
+        def __init__(self, name: str) -> None:
+            self.name = name
+            super().__init__()
+
+else:
+
+    class _TypedParamType(click.ParamType):
+        """Runtime-compatible Click parameter type base."""
+
+        def __init__(self, name: str) -> None:
+            self.name = name
+            super().__init__()
 
 
 class _ProfileNameType(_TypedParamType):
@@ -27,6 +38,7 @@ class _ProfileNameType(_TypedParamType):
             return value
         if not isinstance(value, str):
             self.fail("profile name must be text", param, ctx)
+            raise AssertionError("Click ParamType.fail did not raise")
         try:
             return ProfileName(value=value)
         except ValueError as exc:
@@ -43,6 +55,7 @@ class _DatabaseNameType(_TypedParamType):
             return value
         if not isinstance(value, str):
             self.fail("database name must be text", param, ctx)
+            raise AssertionError("Click ParamType.fail did not raise")
         try:
             return DatabaseName(value=value)
         except ValueError as exc:
@@ -59,6 +72,7 @@ class _TableNameType(_TypedParamType):
             return value
         if not isinstance(value, str):
             self.fail("table name must be text", param, ctx)
+            raise AssertionError("Click ParamType.fail did not raise")
         try:
             return TableName(value=value)
         except ValueError as exc:

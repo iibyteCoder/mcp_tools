@@ -14,6 +14,7 @@ from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest
 from mysql_cli.domain.profile import ProfileName
 from mysql_cli.ports.secret_store import SecretStore
 from mysql_cli.presentation.click.app import cli
+from mysql_cli.presentation.click.types import PROFILE_NAME
 from mysql_client import ExecutionMetadata, SqlStatementType, TransactionAction, WriteResult
 
 if TYPE_CHECKING:
@@ -65,6 +66,10 @@ def test_help_is_available_from_click_command_tree() -> None:
     assert root_help.stderr == ""
     assert "profile" in root_help.stdout
     assert "read" in command_help.stdout
+
+
+def test_click_types_import_and_convert_under_supported_click_versions() -> None:
+    assert PROFILE_NAME.convert("dev", None, None) == ProfileName(value="dev")
 
 
 def test_click_usage_errors_are_one_json_document() -> None:
