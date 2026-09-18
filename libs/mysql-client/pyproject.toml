@@ -1,28 +1,19 @@
 [project]
-name = "mysql-cli"
+name = "mysql-client"
 version = "0.1.0"
-description = "JSON-only MySQL command line foundation"
+description = "Typed asynchronous domain foundation for MySQL execution"
 requires-python = ">=3.10"
 dependencies = [
-    "click>=8.1.7,<9.0",
-    "mysql-client",
-    "filelock>=3.16.0",
-    "keyring>=25.6.0",
-    "platformdirs>=4.3.0",
+    "aiomysql>=0.2.0",
+    "sqlglot>=27.0.0,<28.0.0",
 ]
-
-[project.scripts]
-db-mysql = "mysql_cli.presentation.click.app:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mysql_cli"]
-
-[tool.uv.sources]
-mysql-client = { workspace = true }
+packages = ["src/mysql_client"]
 
 [tool.mypy]
 python_version = "3.10"

@@ -1,59 +1,39 @@
-# MCP Tools
+# MySQL CLI
 
 > 本文件精简编写，仅保留项目特定约定，不写 AI 已知的基础知识。
 
 ## 架构
 
-Monorepo 结构，每个 MCP 服务是独立可安装的 Python 包。
+Monorepo 结构，客户端库和命令行工具分别维护。
 
 ```
-mcp_tools/
-├── packages/      # 独立服务 (mcp-mysql, mcp-redis, ...)
-├── libs/mcp-base/ # 共享基类 (BaseMCPServer, BaseConfig, ToolResult)
-└── pyproject.toml # workspace 配置
+./
+├── libs/mysql-client/      # 类型化 MySQL 执行基础库
+├── packages/mysql-cli/       # db-mysql 命令行工具
+├── skills/mysql-cli/       # CLI 使用契约
+└── pyproject.toml          # workspace 配置
 ```
 
 ## 核心约定
 
-1. **异步优先** - 所有 I/O 使用 `async/await`，数据库用连接池
-2. **模块分离** - `cli.py` | `server.py` | `config.py` | `connection.py` | `tools.py`
+1. **边界清晰** - `mysql-client` 负责协议、解析、策略和执行；`mysql-cli` 负责 CLI 输入输出与 profile 管理
+2. **异步优先** - MySQL I/O 使用 `async/await`，驱动细节隔离在 `mysql_client.adapters.aiomysql`
 3. **类型注解** - Python 3.10+ 语法 (`X | None` 而非 `Optional[X]`)
-4. **命名** - 包名 `mcp_xxx`，工具名 `xxx_action`，类名 `PascalCase`
+4. **JSON 契约** - CLI 成功和失败输出都保持机器可读，命令入口使用 `db-mysql`
 
-## 添加新服务
-
-```bash
-mkdir -p packages/mcp-xxx/src/mcp_xxx
-```
-
-```toml
-# packages/mcp-xxx/pyproject.toml
-[project]
-name = "mcp-xxx"
-dependencies = ["mcp-base", "<async-driver>"]
-
-[project.scripts]
-mcp-xxx = "mcp_xxx.cli:main"
-
-[tool.uv.sources]
-mcp-base = { workspace = true }
-```
-
-```python
-# src/mcp_xxx/server.py
-from mcp_base.server import BaseMCPServer
-
-class XxxServer(BaseMCPServer):
-    async def list_tools(self) -> list[Tool]: ...
-    async def call_tool(self, name: str, args: dict) -> ToolResult: ...
-```
-
-## 使用
+## 开发与验证
 
 ```bash
-# 开发
-uv sync && uv run mcp-mysql
+# 同步依赖
+uv sync
 
-# 全局安装
-cd packages/mcp-mysql && uv tool install .
+# CLI 测试
+uv run --project packages/mysql-cli pytest
+
+# 客户端测试
+uv run --project libs/mysql-client pytest
+
+# 静态检查
+uv run ruff check libs/mysql-client packages/mysql-cli
+uv run mypy libs/mysql-client/src packages/mysql-cli/src
 ```

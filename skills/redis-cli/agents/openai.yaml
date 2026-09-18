@@ -1,4 +1,0 @@
-interface:
-  display_name: "Redis CLI"
-  short_description: "Operate and switch Redis databases from the CLI"
-  default_prompt: "Use $redis-cli to inspect Redis keys and safely switch databases."
