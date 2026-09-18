@@ -1,7 +1,7 @@
 """Stable, presentation-neutral API for asynchronous MySQL execution."""
 
-from mysql_client.cancellation import CancellationToken
-from mysql_client.configuration import (
+from mysql_client.adapters.aiomysql import AiomysqlDriverFactory
+from mysql_client.domain.configuration import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_MYSQL_CHARSET,
     DEFAULT_MYSQL_PORT,
@@ -9,15 +9,7 @@ from mysql_client.configuration import (
     MySqlConnectionConfig,
     SecretValue,
 )
-from mysql_client.driver_adapter import (
-    AiomysqlDriverFactory,
-    DriverColumn,
-    DriverConnection,
-    DriverCursor,
-    DriverFactory,
-    QueryKiller,
-)
-from mysql_client.enums import (
+from mysql_client.domain.enums import (
     CancellationReason,
     Capability,
     ComparisonDifferenceKind,
@@ -34,7 +26,7 @@ from mysql_client.enums import (
     TransactionAction,
     WriteOutcome,
 )
-from mysql_client.errors import (
+from mysql_client.domain.errors import (
     AuthenticationError,
     ClientError,
     ComparisonError,
@@ -52,11 +44,7 @@ from mysql_client.errors import (
     WriteExecutionError,
     error_report_from_exception,
 )
-from mysql_client.inspection_queries import InspectionQueryDefinition, build_inspection_query
-from mysql_client.parser import MySqlSqlParser
-from mysql_client.policy import ExecutionPolicyValidator, validate_execution_policy
-from mysql_client.protocols import CancellationController, QuerySession, SqlParser
-from mysql_client.request_models import (
+from mysql_client.domain.requests import (
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
@@ -75,7 +63,7 @@ from mysql_client.request_models import (
     SqlInput,
     WriteRequest,
 )
-from mysql_client.result_models import (
+from mysql_client.domain.results import (
     BenchmarkResult,
     ColumnDefinition,
     CompareResult,
@@ -90,8 +78,7 @@ from mysql_client.result_models import (
     TargetMetadata,
     WriteResult,
 )
-from mysql_client.session import MySqlSession, SessionState
-from mysql_client.value_models import (
+from mysql_client.domain.values import (
     ByteCount,
     DatabaseName,
     DatabaseParameters,
@@ -105,6 +92,19 @@ from mysql_client.value_models import (
     SqlText,
     TableName,
 )
+from mysql_client.execution.session import MySqlSession, SessionState
+from mysql_client.ports.cancellation import CancellationToken
+from mysql_client.ports.driver import (
+    DriverColumn,
+    DriverConnection,
+    DriverCursor,
+    DriverFactory,
+    QueryKiller,
+)
+from mysql_client.ports.session import CancellationController, QuerySession, SqlParser
+from mysql_client.sql.inspection import InspectionQueryDefinition, build_inspection_query
+from mysql_client.sql.parser import MySqlSqlParser
+from mysql_client.sql.policy import ExecutionPolicyValidator, validate_execution_policy
 
 __all__ = [
     "DEFAULT_CONNECT_TIMEOUT_SECONDS",
