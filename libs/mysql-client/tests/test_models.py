@@ -2,15 +2,15 @@ from datetime import datetime
 
 import pytest
 
-from mysql_client.enums import ExplainFormat, InputSource, SqlStatementType
-from mysql_client.request_models import (
+from mysql_client.domain.enums import ExplainFormat, InputSource, SqlStatementType
+from mysql_client.domain.requests import (
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
     ReadRequest,
     SqlInput,
 )
-from mysql_client.result_models import (
+from mysql_client.domain.results import (
     ColumnDefinition,
     DatabaseRow,
     ExecutionMetadata,

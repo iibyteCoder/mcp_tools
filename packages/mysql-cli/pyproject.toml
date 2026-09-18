@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-db-mysql = "mysql_cli.cli:main"
+db-mysql = "mysql_cli.presentation.click.app:main"
 
 [build-system]
 requires = ["hatchling"]

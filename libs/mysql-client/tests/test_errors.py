@@ -1,7 +1,7 @@
 import pytest
 
-from mysql_client.enums import ErrorCode
-from mysql_client.errors import (
+from mysql_client.domain.enums import ErrorCode
+from mysql_client.domain.errors import (
     AuthenticationError,
     ClientError,
     QueryCancelledError,

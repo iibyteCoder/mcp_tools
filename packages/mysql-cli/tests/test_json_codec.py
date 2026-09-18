@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from mysql_cli.json_codec import encode_json_document
+from mysql_cli.shared.json_codec import encode_json_document
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

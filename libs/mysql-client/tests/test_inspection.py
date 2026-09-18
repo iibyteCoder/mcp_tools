@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from mysql_client.enums import InspectionCommand, SqlStatementType
-from mysql_client.inspection_queries import build_inspection_query
-from mysql_client.request_models import (
+from mysql_client.domain.enums import InspectionCommand, SqlStatementType
+from mysql_client.domain.requests import (
     InspectionRequest,
     SchemaDatabasesRequest,
     SchemaDescribeRequest,
@@ -14,7 +13,8 @@ from mysql_client.request_models import (
     ServerCapabilitiesRequest,
     ServerInspectRequest,
 )
-from mysql_client.value_models import DatabaseName, TableName
+from mysql_client.domain.values import DatabaseName, TableName
+from mysql_client.sql.inspection import build_inspection_query
 
 
 def test_identifier_models_reject_unsafe_empty_values() -> None:

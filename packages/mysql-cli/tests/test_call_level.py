@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import mysql_cli.composition as composition
 from mysql_cli.adapters.profile_store import JsonProfileStore
-from mysql_cli.cli import main
+from mysql_cli.presentation.click.app import main
 
 if TYPE_CHECKING:
     from pathlib import Path

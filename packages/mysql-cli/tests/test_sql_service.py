@@ -5,21 +5,21 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
-from mysql_cli.input_loader import load_inputs
-from mysql_cli.json_codec import encode_json_document
-from mysql_cli.profile_models import ProfileName, ProfileSetRequest, ProfileSettingsPatch
-from mysql_cli.profile_service import ProfileService
-from mysql_cli.profile_store import JsonProfileStore
-from mysql_cli.secret_store import SecretStore
-from mysql_cli.sql_service import SqlExecutionService
+from mysql_cli.adapters.profile_store import JsonProfileStore
+from mysql_cli.application.input import load_inputs
+from mysql_cli.application.profile import ProfileService
+from mysql_cli.application.sql import SqlExecutionService
+from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
+from mysql_cli.domain.profile import ProfileName, ProfileSetRequest, ProfileSettingsPatch
+from mysql_cli.ports.secret_store import SecretStore
+from mysql_cli.shared.json_codec import encode_json_document
 from mysql_client import DriverColumn, DriverConnection, DriverCursor, MySqlConnectionConfig, TransactionAction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-    from mysql_client.value_models import DatabaseParameters
+    from mysql_client.domain.values import DatabaseParameters
 
 
 class MemorySecretStore(SecretStore):

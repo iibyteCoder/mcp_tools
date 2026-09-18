@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from mysql_client.enums import ExecutionPolicy, PolicyViolationReason, SqlStatementType
-from mysql_client.errors import ExecutionPolicyError
-from mysql_client.parser import MySqlSqlParser
-from mysql_client.policy import ExecutionPolicyValidator
-from mysql_client.value_models import SqlText
+from mysql_client.domain.enums import ExecutionPolicy, PolicyViolationReason, SqlStatementType
+from mysql_client.domain.errors import ExecutionPolicyError
+from mysql_client.domain.values import SqlText
+from mysql_client.sql.parser import MySqlSqlParser
+from mysql_client.sql.policy import ExecutionPolicyValidator
 
 
 @pytest.fixture

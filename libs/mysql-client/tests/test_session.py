@@ -6,30 +6,36 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_client.cancellation import CancellationToken
-from mysql_client.configuration import MySqlConnectionConfig, SecretValue
-from mysql_client.driver_adapter import (
-    DriverColumn,
-    DriverConnection,
-    DriverCursor,
-    DriverFailure,
+from mysql_client.domain.configuration import MySqlConnectionConfig, SecretValue
+from mysql_client.domain.enums import (
+    DriverFailureKind,
+    InspectionCommand,
+    SqlStatementType,
+    TransactionAction,
+    WriteOutcome,
 )
-from mysql_client.enums import DriverFailureKind, InspectionCommand, SqlStatementType, TransactionAction, WriteOutcome
-from mysql_client.errors import (
+from mysql_client.domain.errors import (
     AuthenticationError,
     ConnectionError,
     InvalidArgumentError,
     QueryCancelledError,
     QueryTimeoutError,
 )
-from mysql_client.request_models import ReadRequest, SchemaDescribeRequest, SqlInput, WriteRequest
-from mysql_client.session import MySqlSession, SessionState
-from mysql_client.value_models import TableName
+from mysql_client.domain.requests import ReadRequest, SchemaDescribeRequest, SqlInput, WriteRequest
+from mysql_client.domain.values import TableName
+from mysql_client.execution.session import MySqlSession, SessionState
+from mysql_client.ports.cancellation import CancellationToken
+from mysql_client.ports.driver import (
+    DriverColumn,
+    DriverConnection,
+    DriverCursor,
+    DriverFailure,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mysql_client.value_models import DatabaseParameters
+    from mysql_client.domain.values import DatabaseParameters
 
 
 class FakeCursorContext(AbstractAsyncContextManager[DriverCursor]):

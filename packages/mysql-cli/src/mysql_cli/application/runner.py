@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
@@ -84,7 +83,7 @@ def request_requires_stdin(request: CommandRequest) -> bool:
     return request.sql_input is not None and request.sql_input.source is InputSource.STDIN
 
 
-def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text: str | None) -> CommandData:
+async def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text: str | None) -> CommandData:
     """Execute one validated request or return its parse-only diagnostic result."""
 
     if request.selected_profile is None and runtime.selected_profile is not None:
@@ -92,11 +91,11 @@ def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text:
     runtime.request = request
 
     if request.group is CommandGroup.PROFILE:
-        return asyncio.run(execute_profile_command(request, runtime.profile_service))
+        return await execute_profile_command(request, runtime.profile_service)
     if request.group in {CommandGroup.SERVER, CommandGroup.SCHEMA}:
         if runtime.inspection_service is None:
             raise RuntimeError("inspection service is not configured")
-        return asyncio.run(runtime.inspection_service.execute(request))
+        return await runtime.inspection_service.execute(request)
     if request.group is not CommandGroup.SQL:
         raise ValueError("unsupported command group")
 
@@ -105,7 +104,7 @@ def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text:
     if request.selected_profile is not None:
         if runtime.sql_service is None:
             raise RuntimeError("SQL service is not configured")
-        return asyncio.run(runtime.sql_service.execute(request, loaded))
+        return await runtime.sql_service.execute(request, loaded)
     return diagnostic
 
 

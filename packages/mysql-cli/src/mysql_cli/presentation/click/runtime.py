@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -32,7 +33,7 @@ def selected_profile(ctx: click.Context) -> ProfileName | None:
 def execute(ctx: click.Context, request: CommandRequest) -> None:
     current_runtime = runtime(ctx)
     stdin_text = sys.stdin.read() if request_requires_stdin(request) else None
-    data: CommandData = execute_request(current_runtime, request, stdin_text=stdin_text)
+    data: CommandData = asyncio.run(execute_request(current_runtime, request, stdin_text=stdin_text))
     resolved_request = current_runtime.request
     if resolved_request is None:
         raise RuntimeError("command runner did not retain the request")

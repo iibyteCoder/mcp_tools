@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest
-from mysql_cli.inspection_service import InspectionService
-from mysql_cli.json_codec import encode_json_document
-from mysql_cli.profile_models import ProfileName, ProfileSetRequest, ProfileSettingsPatch
-from mysql_cli.profile_service import ProfileService
-from mysql_cli.profile_store import JsonProfileStore
-from mysql_cli.secret_store import SecretStore
+from mysql_cli.adapters.profile_store import JsonProfileStore
+from mysql_cli.application.inspection import InspectionService
+from mysql_cli.application.profile import ProfileService
+from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest
+from mysql_cli.domain.profile import ProfileName, ProfileSetRequest, ProfileSettingsPatch
+from mysql_cli.ports.secret_store import SecretStore
+from mysql_cli.shared.json_codec import encode_json_document
 from mysql_client import (
     DatabaseName,
     DriverColumn,
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-    from mysql_client.value_models import DatabaseParameters
+    from mysql_client.domain.values import DatabaseParameters
 
 
 @dataclass

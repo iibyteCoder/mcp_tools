@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mysql_client.enums import CancellationReason, ExplainFormat
+from mysql_client.domain.enums import CancellationReason, ExplainFormat
 
 if TYPE_CHECKING:
-    from mysql_client.protocols import CancellationController, QuerySession
-    from mysql_client.request_models import (
+    from mysql_client.domain.requests import (
         BenchmarkRequest,
         CompareRequest,
         ExplainRequest,
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
         ReadRequest,
         WriteRequest,
     )
-    from mysql_client.result_models import (
+    from mysql_client.domain.results import (
         BenchmarkResult,
         CompareResult,
         ExplainResult,
@@ -22,6 +21,7 @@ if TYPE_CHECKING:
         QueryResult,
         WriteResult,
     )
+    from mysql_client.ports.session import CancellationController, QuerySession
 
 
 class FakeQuerySession:

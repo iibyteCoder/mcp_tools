@@ -17,7 +17,7 @@ mcp_tools/
 ## 核心约定
 
 1. **边界清晰** - `mysql-client` 负责协议、解析、策略和执行；`mysql-cli` 负责 CLI 输入输出与 profile 管理
-2. **异步优先** - MySQL I/O 使用 `async/await`，驱动细节隔离在 `driver_adapter.py`
+2. **异步优先** - MySQL I/O 使用 `async/await`，驱动细节隔离在 `mysql_client.adapters.aiomysql`
 3. **类型注解** - Python 3.10+ 语法 (`X | None` 而非 `Optional[X]`)
 4. **JSON 契约** - CLI 成功和失败输出都保持机器可读，命令入口使用 `db-mysql`
 

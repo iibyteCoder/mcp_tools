@@ -5,11 +5,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mysql_client.configuration import MySqlConnectionConfig, SecretValue
-from mysql_client.driver_adapter import DriverColumn, DriverConnection, DriverCursor, DriverFailure
-from mysql_client.enums import DriverFailureKind, WriteOutcome
-from mysql_client.errors import InvalidArgumentError, WriteExecutionError
-from mysql_client.request_models import (
+from mysql_client.domain.configuration import MySqlConnectionConfig, SecretValue
+from mysql_client.domain.enums import DriverFailureKind, WriteOutcome
+from mysql_client.domain.errors import InvalidArgumentError, WriteExecutionError
+from mysql_client.domain.requests import (
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
@@ -18,12 +17,13 @@ from mysql_client.request_models import (
     SqlInput,
     WriteRequest,
 )
-from mysql_client.session import MySqlSession, SessionState
+from mysql_client.execution.session import MySqlSession, SessionState
+from mysql_client.ports.driver import DriverColumn, DriverConnection, DriverCursor, DriverFailure
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mysql_client.value_models import DatabaseParameters
+    from mysql_client.domain.values import DatabaseParameters
 
 
 class CursorContext(AbstractAsyncContextManager[DriverCursor]):

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from mysql_client.enums import SqlParseReason, SqlStatementType
-from mysql_client.errors import SqlParseError, UnsupportedSqlError
-from mysql_client.parser import MySqlSqlParser
-from mysql_client.request_models import SqlInput
-from mysql_client.value_models import SqlText
+from mysql_client.domain.enums import SqlParseReason, SqlStatementType
+from mysql_client.domain.errors import SqlParseError, UnsupportedSqlError
+from mysql_client.domain.requests import SqlInput
+from mysql_client.domain.values import SqlText
+from mysql_client.sql.parser import MySqlSqlParser
 
 
 @pytest.fixture

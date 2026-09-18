@@ -6,19 +6,20 @@ from typing import TYPE_CHECKING, cast
 
 from click.testing import CliRunner
 
-from mysql_cli.cli import CliRuntime, cli
-from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest, CommandStatus
-from mysql_cli.output_model import SqlCommandData
-from mysql_cli.profile_models import ProfileName
-from mysql_cli.profile_service import ProfileService
-from mysql_cli.profile_store import JsonProfileStore
-from mysql_cli.secret_store import SecretStore
+from mysql_cli.adapters.profile_store import JsonProfileStore
+from mysql_cli.application.profile import ProfileService
+from mysql_cli.application.results import SqlCommandData
+from mysql_cli.application.runner import CliRuntime
+from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
+from mysql_cli.domain.profile import ProfileName
+from mysql_cli.ports.secret_store import SecretStore
+from mysql_cli.presentation.click.app import cli
 from mysql_client import ExecutionMetadata, SqlStatementType, TransactionAction, WriteResult
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_cli.input_loader import LoadedInputs
+    from mysql_cli.application.input import LoadedInputs
 
 
 @dataclass

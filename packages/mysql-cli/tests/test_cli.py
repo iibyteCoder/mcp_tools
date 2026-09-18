@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 if TYPE_CHECKING:
-    from mysql_cli.json_codec import JsonObject, JsonValue
+    from mysql_cli.shared.json_codec import JsonObject, JsonValue
 
 
 @pytest.fixture
