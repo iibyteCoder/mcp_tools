@@ -5,8 +5,6 @@ description: Neutral db-mysql command tree for inspecting and operating MySQL da
 
 # MySQL CLI
 
-> **Current migration status:** This document describes the target `mysql-cli` contract. Until the new implementation is complete and explicitly selected, do not assume the new commands are available in the currently installed `db-mysql`. The existing implementation remains under its current installation; this documentation change does not modify, reinstall, or replace it. Do not add compatibility commands or maintain two long-term command contracts. Remove this migration note after the switch is complete.
-
 The product name is MySQL CLI and the executable is `db-mysql`. Prefer one-shot calls with `--json`.
 
 ## Command tree

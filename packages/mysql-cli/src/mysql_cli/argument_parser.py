@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, NoReturn
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-from mysql_command import __version__
-from mysql_command.command_model import (
+from mysql_cli import __version__
+from mysql_cli.command_model import (
     ALL_ROUTES,
     SQL_ROUTES,
     CommandAction,
@@ -21,8 +21,8 @@ from mysql_command.command_model import (
     ExitCode,
     SqlInputSpec,
 )
-from mysql_command.errors import CliFailure, ErrorDetail
-from mysql_command.profile_models import ProfileName, ProfileSettingsPatch
+from mysql_cli.errors import CliFailure, ErrorDetail
+from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
 
 
 class ParserExit(Exception):

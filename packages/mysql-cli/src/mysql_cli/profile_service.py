@@ -7,8 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
-from mysql_client import AiomysqlDriverFactory, MySqlConnectionConfig, MySqlSession, SecretValue
-from mysql_command.profile_models import (
+from mysql_cli.profile_models import (
     DirectoryBinding,
     ProfileName,
     ProfileRecord,
@@ -19,11 +18,12 @@ from mysql_command.profile_models import (
     ProfileSettings,
     normalize_directory,
 )
-from mysql_command.secret_store import KeyringSecretStore, SecretStoreError
+from mysql_cli.secret_store import KeyringSecretStore, SecretStoreError
+from mysql_client import AiomysqlDriverFactory, MySqlConnectionConfig, MySqlSession, SecretValue
 
 if TYPE_CHECKING:
-    from mysql_command.profile_store import ProfileStore
-    from mysql_command.secret_store import SecretStore
+    from mysql_cli.profile_store import ProfileStore
+    from mysql_cli.secret_store import SecretStore
 
 
 class ProfileServiceErrorCode(str, Enum):

@@ -10,18 +10,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import TextIO
 
-from mysql_client import (
-    ExecutionPolicy,
-    ExecutionPolicyError,
-    MySqlSqlParser,
-    ParsedSql,
-    SqlParseError,
-    UnsupportedSqlError,
-    validate_execution_policy,
-)
-from mysql_command import __version__
-from mysql_command.argument_parser import ParserExit, build_parser, parse_command_request
-from mysql_command.command_model import (
+from mysql_cli import __version__
+from mysql_cli.argument_parser import ParserExit, build_parser, parse_command_request
+from mysql_cli.command_model import (
     CommandAction,
     CommandGroup,
     CommandRequest,
@@ -32,10 +23,10 @@ from mysql_command.command_model import (
     InputSource,
     OutputMode,
 )
-from mysql_command.errors import CliFailure, ErrorDetail
-from mysql_command.input_loader import LoadedInputs, load_inputs
-from mysql_command.json_codec import encode_json_document
-from mysql_command.output_model import (
+from mysql_cli.errors import CliFailure, ErrorDetail
+from mysql_cli.input_loader import LoadedInputs, load_inputs
+from mysql_cli.json_codec import encode_json_document
+from mysql_cli.output_model import (
     CommandDiagnosticData,
     DiagnosticMetadata,
     ErrorBody,
@@ -45,10 +36,19 @@ from mysql_command.output_model import (
     SqlDiagnostic,
     SuccessEnvelope,
 )
-from mysql_command.profile_commands import execute_profile_command
-from mysql_command.profile_service import ProfileService, ProfileServiceError, ProfileServiceErrorCode
-from mysql_command.profile_store import JsonProfileStore, ProfileStoreError
-from mysql_command.secret_store import KeyringSecretStore
+from mysql_cli.profile_commands import execute_profile_command
+from mysql_cli.profile_service import ProfileService, ProfileServiceError, ProfileServiceErrorCode
+from mysql_cli.profile_store import JsonProfileStore, ProfileStoreError
+from mysql_cli.secret_store import KeyringSecretStore
+from mysql_client import (
+    ExecutionPolicy,
+    ExecutionPolicyError,
+    MySqlSqlParser,
+    ParsedSql,
+    SqlParseError,
+    UnsupportedSqlError,
+    validate_execution_policy,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

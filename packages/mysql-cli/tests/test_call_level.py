@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from mysql_command.cli import main
+from mysql_cli.cli import main
 
 
 def test_main_parses_non_sql_command_without_database_access(capsys: object) -> None:

@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0"
 
-from mysql_command.profile_models import (
+from mysql_cli.profile_models import (
     DirectoryBinding,
     ProfileName,
     ProfileRecord,
@@ -11,9 +11,9 @@ from mysql_command.profile_models import (
     ProfileSettings,
     ProfileSettingsPatch,
 )
-from mysql_command.profile_service import ProfileService
-from mysql_command.profile_store import JsonProfileStore
-from mysql_command.secret_store import KeyringSecretStore
+from mysql_cli.profile_service import ProfileService
+from mysql_cli.profile_store import JsonProfileStore
+from mysql_cli.secret_store import KeyringSecretStore
 
 __all__ = [
     "DirectoryBinding",

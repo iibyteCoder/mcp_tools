@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mysql_command.command_model import CommandAction, CommandGroup, CommandRequest
-from mysql_command.output_model import BindingView, ProfileCommandData, ProfileView
-from mysql_command.profile_models import DirectoryBinding, ProfileName, ProfileRecord, ProfileSetRequest
+from mysql_cli.command_model import CommandAction, CommandGroup, CommandRequest
+from mysql_cli.output_model import BindingView, ProfileCommandData, ProfileView
+from mysql_cli.profile_models import DirectoryBinding, ProfileName, ProfileRecord, ProfileSetRequest
 
 if TYPE_CHECKING:
-    from mysql_command.profile_service import ProfileService
+    from mysql_cli.profile_service import ProfileService
 
 
 async def execute_profile_command(request: CommandRequest, service: ProfileService) -> ProfileCommandData:

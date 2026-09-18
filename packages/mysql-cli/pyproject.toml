@@ -11,17 +11,17 @@ dependencies = [
 ]
 
 [project.scripts]
-db-mysql = "mysql_command.cli:main"
+db-mysql = "mysql_cli.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mysql_command"]
+packages = ["src/mysql_cli"]
 
 [tool.uv.sources]
-mysql-client = { path = "../../libs/mysql-client" }
+mysql-client = { workspace = true }
 
 [tool.mypy]
 python_version = "3.10"

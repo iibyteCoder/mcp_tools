@@ -9,7 +9,7 @@ import keyring
 from keyring.errors import PasswordDeleteError
 
 if TYPE_CHECKING:
-    from mysql_command.profile_models import ProfileName
+    from mysql_cli.profile_models import ProfileName
 
 
 class SecretStoreError(RuntimeError):

@@ -9,17 +9,17 @@ from typing import TYPE_CHECKING
 import pytest
 from filelock import FileLock
 
-from mysql_command.argument_parser import build_parser, parse_command_request
-from mysql_command.command_model import CommandAction, CommandGroup
-from mysql_command.profile_models import (
+from mysql_cli.argument_parser import build_parser, parse_command_request
+from mysql_cli.command_model import CommandAction, CommandGroup
+from mysql_cli.profile_models import (
     ProfileName,
     ProfileRegistry,
     ProfileSetRequest,
     ProfileSettingsPatch,
 )
-from mysql_command.profile_service import ProfileService, ProfileServiceError, ProfileValidator
-from mysql_command.profile_store import JsonProfileStore, ProfileStoreError
-from mysql_command.secret_store import SecretStore
+from mysql_cli.profile_service import ProfileService, ProfileServiceError, ProfileValidator
+from mysql_cli.profile_store import JsonProfileStore, ProfileStoreError
+from mysql_cli.secret_store import SecretStore
 
 if TYPE_CHECKING:
     from pathlib import Path

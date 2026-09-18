@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_command.profile_models import ProfileName, ProfileSettingsPatch
+    from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
 
 
 class CommandGroup(str, Enum):

@@ -20,7 +20,7 @@ def cli_environment() -> dict[str, str]:
 
     repository_root = Path(__file__).resolve().parents[3]
     source_paths = (
-        repository_root / "packages" / "mysql-command" / "src",
+        repository_root / "packages" / "mysql-cli" / "src",
         repository_root / "libs" / "mysql-client" / "src",
     )
     environment = os.environ.copy()
@@ -36,7 +36,7 @@ def run_cli(
     """Run the package in a fresh process."""
 
     return subprocess.run(
-        [sys.executable, "-m", "mysql_command", *arguments],
+        [sys.executable, "-m", "mysql_cli", *arguments],
         capture_output=True,
         check=False,
         env=cli_environment,

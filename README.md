@@ -7,7 +7,7 @@
 ```text
 mcp_tools/
 ├── libs/mysql-client/       # 类型化 MySQL 执行基础库
-├── packages/mysql-command/  # db-mysql 命令行工具
+├── packages/mysql-cli/       # db-mysql 命令行工具
 ├── skills/mysql-cli/        # CLI 使用契约与连接参考
 ├── Claude.md                # 开发指南
 └── pyproject.toml           # 工作区配置
@@ -18,7 +18,7 @@ mcp_tools/
 | 包名 | 描述 |
 | ---- | ---- |
 | [mysql-client](libs/mysql-client/pyproject.toml) | 类型化异步 MySQL 执行基础库 |
-| [mysql-cli](packages/mysql-command/pyproject.toml) | JSON-only `db-mysql` 命令行工具 |
+| [mysql-cli](packages/mysql-cli/pyproject.toml) | JSON-only `db-mysql` 命令行工具 |
 
 ## 快速开始
 
@@ -34,7 +34,7 @@ mcp_tools/
 uv sync
 
 # 安装 db-mysql
-uv tool install packages/mysql-command
+uv tool install packages/mysql-cli
 ```
 
 安装后可使用：
@@ -50,7 +50,7 @@ db-mysql --json profile list
 uv sync
 
 # 运行 CLI 测试
-uv run --project packages/mysql-command pytest
+uv run --project packages/mysql-cli pytest
 
 # 运行客户端测试
 uv run --project libs/mysql-client pytest

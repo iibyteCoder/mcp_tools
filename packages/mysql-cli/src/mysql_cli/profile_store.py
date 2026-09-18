@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 from filelock import FileLock, Timeout
 from platformdirs import user_config_path
 
-from mysql_command.json_codec import JsonValue, is_json_object
-from mysql_command.profile_models import (
+from mysql_cli.json_codec import JsonValue, is_json_object
+from mysql_cli.profile_models import (
     DirectoryBinding,
     ProfileName,
     ProfileRecord,

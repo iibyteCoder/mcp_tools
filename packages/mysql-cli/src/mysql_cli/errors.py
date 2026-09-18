@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_command.command_model import DiagnosticErrorType, ErrorCode, ExitCode, InputSource
+    from mysql_cli.command_model import DiagnosticErrorType, ErrorCode, ExitCode, InputSource
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

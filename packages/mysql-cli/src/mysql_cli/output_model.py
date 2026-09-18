@@ -5,13 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from mysql_command.command_model import CommandAction, CommandGroup, OutputMode
+from mysql_cli.command_model import CommandAction, CommandGroup, OutputMode
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_client import SqlStatementType
-    from mysql_command.command_model import (
+    from mysql_cli.command_model import (
         CommandAction,
         CommandGroup,
         DiagnosticStatus,
@@ -19,7 +18,8 @@ if TYPE_CHECKING:
         InputSource,
         ParameterKind,
     )
-    from mysql_command.errors import ErrorDetail
+    from mysql_cli.errors import ErrorDetail
+    from mysql_client import SqlStatementType
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

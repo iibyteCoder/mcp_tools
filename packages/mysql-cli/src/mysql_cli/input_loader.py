@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-from mysql_client import SqlInput
-from mysql_command.command_model import (
+from mysql_cli.command_model import (
     CommandRequest,
     DiagnosticErrorType,
     ErrorCode,
@@ -17,8 +16,8 @@ from mysql_command.command_model import (
     InputSource,
     ParameterKind,
 )
-from mysql_command.errors import CliFailure, ErrorDetail
-from mysql_command.json_codec import (
+from mysql_cli.errors import CliFailure, ErrorDetail
+from mysql_cli.json_codec import (
     JsonArray,
     JsonDocumentError,
     JsonObject,
@@ -26,6 +25,7 @@ from mysql_command.json_codec import (
     is_json_object,
     parse_json_document,
 )
+from mysql_client import SqlInput
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
