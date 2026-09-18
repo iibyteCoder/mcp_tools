@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from mysql_cli.command_model import DiagnosticErrorType, ErrorCode, ExitCode, InputSource
+    from mysql_client import ComparisonDifference, WriteOutcome
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -24,7 +25,7 @@ class ErrorDetail:
 class CliFailure(Exception):
     """An expected failure that can be rendered without writing to stderr."""
 
-    __slots__ = ("code", "details", "exit_code", "message", "retryable")
+    __slots__ = ("code", "details", "differences", "exit_code", "message", "retryable", "write_outcome")
 
     def __init__(
         self,
@@ -34,6 +35,8 @@ class CliFailure(Exception):
         retryable: bool,
         details: tuple[ErrorDetail, ...],
         exit_code: ExitCode,
+        write_outcome: WriteOutcome | None = None,
+        differences: tuple[ComparisonDifference, ...] = (),
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -41,3 +44,5 @@ class CliFailure(Exception):
         self.retryable = retryable
         self.details = details
         self.exit_code = exit_code
+        self.write_outcome = write_outcome
+        self.differences = differences

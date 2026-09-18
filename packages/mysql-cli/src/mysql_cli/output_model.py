@@ -19,7 +19,17 @@ if TYPE_CHECKING:
         ParameterKind,
     )
     from mysql_cli.errors import ErrorDetail
-    from mysql_client import InspectionResult, SqlStatementType
+    from mysql_client import (
+        BenchmarkResult,
+        CompareResult,
+        ComparisonDifference,
+        ExplainResult,
+        InspectionResult,
+        QueryResult,
+        SqlStatementType,
+        WriteOutcome,
+        WriteResult,
+    )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -117,11 +127,22 @@ class InspectionCommandData:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class SqlCommandData:
+    """Successful output for one executed SQL command."""
+
+    status: CommandStatus
+    command_group: CommandGroup
+    action: CommandAction
+    profile: str
+    result: QueryResult | WriteResult | ExplainResult | BenchmarkResult | CompareResult
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SuccessEnvelope:
     """Top-level success envelope."""
 
     ok: bool
-    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData
+    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SqlCommandData
     meta: DiagnosticMetadata
 
 
@@ -133,6 +154,8 @@ class ErrorBody:
     message: str
     retryable: bool
     details: tuple[ErrorDetail, ...]
+    write_outcome: WriteOutcome | None = None
+    differences: tuple[ComparisonDifference, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

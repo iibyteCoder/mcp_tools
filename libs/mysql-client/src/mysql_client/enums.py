@@ -58,6 +58,44 @@ class ErrorCode(str, Enum):
     INTERNAL_ERROR = "internal_error"
 
 
+class WriteOutcome(str, Enum):
+    """Known transaction state after a write attempt."""
+
+    COMMITTED = "committed"
+    ROLLED_BACK = "rolled_back"
+    UNKNOWN = "unknown"
+    DETERMINED_FAILURE = "determined_failure"
+
+
+class ComparisonDifferenceKind(str, Enum):
+    """Stable categories for differences between two query results."""
+
+    COLUMN_DEFINITION = "column_definition"
+    ROW_COUNT = "row_count"
+    ROW_VALUE = "row_value"
+    KEY_COLUMN = "key_column"
+    DUPLICATE_KEY = "duplicate_key"
+
+
+class ComparisonLocation(str, Enum):
+    """Stable locations used in comparison difference reports."""
+
+    COLUMNS = "columns"
+    ROW_COUNT = "rows.count"
+    ROW = "row"
+    LEFT_MISSING_KEY = "left.missing_key"
+    RIGHT_MISSING_KEY = "right.missing_key"
+    LEFT_DUPLICATE_KEY = "left.duplicate_key"
+    RIGHT_DUPLICATE_KEY = "right.duplicate_key"
+
+
+class ComparisonSide(str, Enum):
+    """Side labels used while comparing two result sets."""
+
+    LEFT = "left"
+    RIGHT = "right"
+
+
 class ExplainFormat(str, Enum):
     """MySQL execution-plan formats."""
 

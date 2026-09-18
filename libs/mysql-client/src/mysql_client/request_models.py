@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeAlias
 
 from mysql_client.enums import ExplainFormat, InputSource, InspectionCommand, SqlStatementType, TransactionAction
-from mysql_client.value_models import DatabaseName, DatabaseValue, SqlText, TableName
+from mysql_client.value_models import DatabaseName, DatabaseParameters, SqlText, TableName
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -66,7 +66,7 @@ class ReadRequest:
     """Request for a read whose SQL is executed without rewriting."""
 
     sql: SqlInput
-    parameters: tuple[DatabaseValue, ...] = ()
+    parameters: DatabaseParameters = ()
     max_rows: int | None = None
     max_bytes: int | None = None
     statement_timeout_seconds: float | None = None
@@ -86,7 +86,7 @@ class WriteRequest:
     """Request for one explicitly authorized write or DDL statement."""
 
     sql: SqlInput
-    parameters: tuple[DatabaseValue, ...] = ()
+    parameters: DatabaseParameters = ()
     statement_type: SqlStatementType = SqlStatementType.UNKNOWN
     transaction: TransactionAction = TransactionAction.COMMIT
     statement_timeout_seconds: float | None = None
@@ -101,7 +101,7 @@ class ExplainRequest:
     """Request for an execution plan."""
 
     sql: SqlInput
-    parameters: tuple[DatabaseValue, ...] = ()
+    parameters: DatabaseParameters = ()
     format: ExplainFormat = ExplainFormat.TRADITIONAL
     analyze: bool = False
     statement_timeout_seconds: float | None = None
@@ -116,7 +116,7 @@ class BenchmarkRequest:
     """Request for repeated execution measurements."""
 
     sql: SqlInput
-    parameters: tuple[DatabaseValue, ...] = ()
+    parameters: DatabaseParameters = ()
     iterations: int | None = None
     warmup_iterations: int | None = None
     statement_timeout_seconds: float | None = None
@@ -136,8 +136,8 @@ class CompareRequest:
 
     left_sql: SqlInput
     right_sql: SqlInput
-    left_parameters: tuple[DatabaseValue, ...] = ()
-    right_parameters: tuple[DatabaseValue, ...] = ()
+    left_parameters: DatabaseParameters = ()
+    right_parameters: DatabaseParameters = ()
     key_columns: tuple[str, ...] = ()
     max_diff_samples: int | None = None
     statement_timeout_seconds: float | None = None
@@ -158,6 +158,8 @@ class ExecutionPolicyDefaults:
     statement_timeout_seconds: float = 30.0
     benchmark_iterations: int = 10
     benchmark_warmup_iterations: int = 1
+    benchmark_max_iterations: int = 100
+    benchmark_max_warmup_iterations: int = 20
     max_diff_samples: int = 20
 
     def __post_init__(self) -> None:
@@ -165,8 +167,17 @@ class ExecutionPolicyDefaults:
             raise ValueError("结果限制必须大于 0")
         if self.statement_timeout_seconds <= 0:
             raise ValueError("语句超时必须大于 0")
-        if self.benchmark_iterations < 1 or self.benchmark_warmup_iterations < 0:
+        if (
+            self.benchmark_iterations < 1
+            or self.benchmark_warmup_iterations < 0
+            or self.benchmark_max_iterations < 1
+            or self.benchmark_max_warmup_iterations < 0
+        ):
             raise ValueError("benchmark 默认值无效")
+        if self.benchmark_iterations > self.benchmark_max_iterations:
+            raise ValueError("benchmark 默认迭代次数不能超过上限")
+        if self.benchmark_warmup_iterations > self.benchmark_max_warmup_iterations:
+            raise ValueError("benchmark 默认预热次数不能超过上限")
         if self.max_diff_samples < 0:
             raise ValueError("差异样本数不能为负数")
 

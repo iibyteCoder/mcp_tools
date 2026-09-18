@@ -12,6 +12,7 @@ JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 
 DatabaseScalar: TypeAlias = JsonScalar | bytes | Decimal | date | datetime | time
 DatabaseValue: TypeAlias = DatabaseScalar | list["DatabaseValue"] | dict[str, "DatabaseValue"]
+DatabaseParameters: TypeAlias = tuple[DatabaseValue, ...] | dict[str, DatabaseValue]
 
 SqlText = NewType("SqlText", str)
 ProfileName = NewType("ProfileName", str)

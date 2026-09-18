@@ -8,7 +8,7 @@ import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Final, Protocol, cast
 
 from filelock import FileLock, Timeout
 from platformdirs import user_config_path
@@ -49,10 +49,16 @@ class ProfileStore(Protocol):
 class JsonProfileStore:
     """Persist one explicit JSON schema under a process-safe lock."""
 
-    SCHEMA = "db-mysql.profile-registry"
-    VERSION = 1
+    SCHEMA: Final[str] = "db-mysql.profile-registry"
+    VERSION: Final[int] = 1
+    CLI_LOCK_TIMEOUT_SECONDS: Final[float] = 1.0
 
-    def __init__(self, path: Path | None = None, *, lock_timeout: float = 0.0) -> None:
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        lock_timeout: float = 0.0,
+    ) -> None:
         self.path = path or (user_config_path("db-mysql") / "profiles.json")
         self.lock_path = Path(f"{self.path}.lock")
         self._lock_timeout = lock_timeout

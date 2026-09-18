@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
@@ -23,7 +24,7 @@ from mysql_cli.command_model import (
 )
 from mysql_cli.errors import CliFailure, ErrorDetail
 from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
-from mysql_client import DatabaseName, TableName
+from mysql_client import DatabaseName, TableName, TransactionAction
 
 
 class ParserExit(Exception):
@@ -93,9 +94,7 @@ def build_parser() -> CliArgumentParser:
         if route.group is CommandGroup.SCHEMA:
             _add_schema_arguments(action_parser, route.action)
         if route in SQL_ROUTES:
-            action_parser.add_argument("--sql", dest="_sql", help="inline SQL text")
-            action_parser.add_argument("--sql-file", dest="_sql_file", type=Path, help="SQL file path; - reads stdin")
-            action_parser.add_argument("--params-file", dest="_params_file", type=Path, help="JSON object or array")
+            _add_sql_arguments(action_parser, route.action)
     return parser
 
 
@@ -159,6 +158,37 @@ def _add_schema_arguments(parser: argparse.ArgumentParser, action: CommandAction
         parser.add_argument("--table", dest="_schema_table", help="optional table name")
 
 
+def _add_sql_arguments(parser: argparse.ArgumentParser, action: CommandAction) -> None:
+    if action is CommandAction.COMPARE:
+        parser.add_argument("--left-sql", dest="_left_sql", help="left inline SQL text")
+        parser.add_argument("--left-sql-file", dest="_left_sql_file", type=Path, help="left SQL file path")
+        parser.add_argument("--right-sql", dest="_right_sql", help="right inline SQL text")
+        parser.add_argument("--right-sql-file", dest="_right_sql_file", type=Path, help="right SQL file path")
+        parser.add_argument("--left-params-file", dest="_left_params_file", type=Path, help="left JSON parameters")
+        parser.add_argument("--right-params-file", dest="_right_params_file", type=Path, help="right JSON parameters")
+        parser.add_argument("--key-column", dest="_key_columns", action="append", default=[])
+        parser.add_argument("--max-diff-samples", dest="_max_diff_samples", type=int)
+    else:
+        parser.add_argument("--sql", dest="_sql", help="inline SQL text")
+        parser.add_argument("--sql-file", dest="_sql_file", type=Path, help="SQL file path; - reads stdin")
+        parser.add_argument("--params-file", dest="_params_file", type=Path, help="JSON object or array")
+        if action is CommandAction.WRITE:
+            parser.add_argument(
+                "--transaction",
+                dest="_transaction",
+                choices=tuple(item.value for item in TransactionAction),
+                default=TransactionAction.COMMIT.value,
+                help="transaction decision: commit or rollback",
+            )
+        if action is CommandAction.READ:
+            parser.add_argument("--max-rows", dest="_max_rows", type=int)
+            parser.add_argument("--max-bytes", dest="_max_bytes", type=int)
+        if action is CommandAction.BENCHMARK:
+            parser.add_argument("--iterations", dest="_iterations", type=int)
+            parser.add_argument("--warmup-iterations", dest="_warmup_iterations", type=int)
+        parser.add_argument("--timeout", dest="_timeout", type=float, help="statement timeout in seconds")
+
+
 def _profile_request(
     namespace: argparse.Namespace,
     *,
@@ -210,14 +240,7 @@ def _profile_request(
 
 
 def _with_selected_profile(request: CommandRequest, selected_profile: ProfileName | None) -> CommandRequest:
-    return CommandRequest(
-        group=request.group,
-        action=request.action,
-        output_mode=request.output_mode,
-        sql_input=request.sql_input,
-        params_file=request.params_file,
-        selected_profile=selected_profile,
-    )
+    return replace(request, selected_profile=selected_profile)
 
 
 def _schema_request(
@@ -242,6 +265,8 @@ def _sql_request(
     group: CommandGroup,
     action: CommandAction,
 ) -> CommandRequest:
+    if action is CommandAction.COMPARE:
+        return _compare_request(namespace, group=group, action=action)
     sql_text = _optional_str(namespace, "_sql")
     sql_file = _optional_path(namespace, "_sql_file")
     params_file = _optional_path(namespace, "_params_file")
@@ -271,7 +296,80 @@ def _sql_request(
         if sql_file is None:
             raise TypeError("SQL 文件路径缺失")
         sql_input = SqlInputSpec.file(sql_file)
-    return CommandRequest(group=group, action=action, sql_input=sql_input, params_file=params_file)
+    transaction_value = getattr(namespace, "_transaction", TransactionAction.COMMIT.value)
+    try:
+        transaction = TransactionAction(transaction_value)
+    except ValueError as exc:
+        raise _sql_argument_failure("事务动作无效", "--transaction") from exc
+    return CommandRequest(
+        group=group,
+        action=action,
+        sql_input=sql_input,
+        params_file=params_file,
+        sql_max_rows=_optional_int(namespace, "_max_rows"),
+        sql_max_bytes=_optional_int(namespace, "_max_bytes"),
+        sql_timeout_seconds=_optional_float(namespace, "_timeout"),
+        sql_iterations=_optional_int(namespace, "_iterations"),
+        sql_warmup_iterations=_optional_int(namespace, "_warmup_iterations"),
+        sql_transaction=transaction,
+    )
+
+
+def _compare_request(
+    namespace: argparse.Namespace,
+    *,
+    group: CommandGroup,
+    action: CommandAction,
+) -> CommandRequest:
+    left = _sql_spec(namespace, "_left_sql", "_left_sql_file", label="left SQL")
+    right = _sql_spec(namespace, "_right_sql", "_right_sql_file", label="right SQL")
+    key_columns = tuple(_string_list(namespace, "_key_columns"))
+    max_diff_samples = _optional_int(namespace, "_max_diff_samples")
+    timeout = _optional_float(namespace, "_timeout")
+    if max_diff_samples is not None and max_diff_samples < 0:
+        raise _sql_argument_failure("最大差异样本数不能为负数", "--max-diff-samples")
+    return CommandRequest(
+        group=group,
+        action=action,
+        compare_left_sql_input=left,
+        compare_right_sql_input=right,
+        compare_left_params_file=_optional_path(namespace, "_left_params_file"),
+        compare_right_params_file=_optional_path(namespace, "_right_params_file"),
+        compare_key_columns=key_columns,
+        compare_max_diff_samples=max_diff_samples,
+        sql_timeout_seconds=timeout,
+    )
+
+
+def _sql_spec(namespace: argparse.Namespace, text_name: str, file_name: str, *, label: str) -> SqlInputSpec:
+    sql_text = _optional_str(namespace, text_name)
+    sql_file = _optional_path(namespace, file_name)
+    if sql_text is not None and sql_file is not None:
+        raise _sql_argument_failure(f"{label}不能同时使用文本和文件", f"{text_name}/{file_name}")
+    if sql_text is not None:
+        return SqlInputSpec.inline(sql_text)
+    if sql_file is not None:
+        if sql_file == Path("-"):
+            raise _sql_argument_failure("compare 不支持两个 SQL 输入共享标准输入", file_name)
+        return SqlInputSpec.file(sql_file)
+    raise _sql_argument_failure(f"必须提供 {label}", f"{text_name}|{file_name}")
+
+
+def _string_list(namespace: argparse.Namespace, name: str) -> list[str]:
+    value = getattr(namespace, name, [])
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"参数 {name} 类型无效")
+    return value
+
+
+def _sql_argument_failure(message: str, argument: str) -> CliFailure:
+    return CliFailure(
+        code=ErrorCode.INVALID_ARGUMENT,
+        message=message,
+        retryable=False,
+        details=(ErrorDetail(error_type=DiagnosticErrorType.ARGUMENT_SYNTAX, argument=argument),),
+        exit_code=ExitCode.INVALID_ARGUMENT,
+    )
 
 
 def _required_group(namespace: argparse.Namespace) -> CommandGroup:

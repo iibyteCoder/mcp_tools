@@ -5,11 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
 
+from mysql_client.enums import WriteOutcome
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from datetime import datetime
 
-    from mysql_client.enums import ErrorCode, ExplainFormat, InspectionCommand, SqlStatementType
+    from mysql_client.enums import (
+        ComparisonDifferenceKind,
+        ComparisonLocation,
+        ErrorCode,
+        ExplainFormat,
+        InspectionCommand,
+        SqlStatementType,
+    )
     from mysql_client.value_models import DatabaseValue
 
 
@@ -75,6 +84,7 @@ class WriteResult:
     affected_rows: int
     metadata: ExecutionMetadata
     generated_values: tuple[DatabaseValue, ...] = ()
+    outcome: WriteOutcome = WriteOutcome.COMMITTED
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -93,6 +103,20 @@ class BenchmarkResult:
 
     samples_ms: tuple[float, ...]
     metadata: ExecutionMetadata
+    iterations: int = 0
+    warmup_iterations: int = 0
+    minimum_ms: float = 0.0
+    maximum_ms: float = 0.0
+    average_ms: float = 0.0
+    median_ms: float = 0.0
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ComparisonDifference:
+    """A secret-free description of one comparison mismatch."""
+
+    kind: ComparisonDifferenceKind
+    location: ComparisonLocation
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -102,7 +126,7 @@ class CompareResult:
     equal: bool
     left: QueryResult
     right: QueryResult
-    differences: tuple[str, ...] = ()
+    differences: tuple[ComparisonDifference, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -121,6 +145,8 @@ class ErrorReport:
     message: str
     hint: str | None = None
     exception_type: str | None = None
+    write_outcome: WriteOutcome | None = None
+    differences: tuple[ComparisonDifference, ...] = ()
 
 
 ResponsePayload: TypeAlias = (

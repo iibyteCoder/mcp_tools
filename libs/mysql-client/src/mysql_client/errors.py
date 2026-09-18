@@ -9,8 +9,9 @@ from mysql_client.enums import (
     ExecutionPolicy,
     PolicyViolationReason,
     SqlParseReason,
+    WriteOutcome,
 )
-from mysql_client.result_models import ErrorReport
+from mysql_client.result_models import ComparisonDifference, ErrorReport
 
 
 class ClientError(Exception):
@@ -18,10 +19,19 @@ class ClientError(Exception):
 
     code: ClassVar[ErrorCode] = ErrorCode.INTERNAL_ERROR
 
-    def __init__(self, message: str, *, hint: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        hint: str | None = None,
+        write_outcome: WriteOutcome | None = None,
+        differences: tuple[ComparisonDifference, ...] = (),
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.hint = hint
+        self.write_outcome = write_outcome
+        self.differences = differences
 
 
 class ConfigurationError(ClientError):
@@ -97,6 +107,13 @@ class QueryExecutionError(ClientError):
     code: ClassVar[ErrorCode] = ErrorCode.QUERY_FAILED
 
 
+class WriteExecutionError(QueryExecutionError):
+    """A write failed with an explicitly classified transaction outcome."""
+
+    def __init__(self, message: str, *, outcome: WriteOutcome) -> None:
+        super().__init__(message, write_outcome=outcome)
+
+
 class QueryTimeoutError(ClientError):
     """The query exceeded an execution policy deadline."""
 
@@ -114,6 +131,13 @@ class ComparisonError(ClientError):
 
     code: ClassVar[ErrorCode] = ErrorCode.COMPARISON_FAILED
 
+    def __init__(self, differences: tuple[ComparisonDifference, ...]) -> None:
+        super().__init__(
+            "比较结果不一致",
+            hint="检查两条 SQL 的结果定义和参数绑定",
+            differences=differences,
+        )
+
 
 class InternalError(ClientError):
     """Unexpected implementation failure."""
@@ -128,17 +152,25 @@ def error_report_from_exception(exc: BaseException) -> ErrorReport:
         code = exc.code
         message = exc.message
         hint = exc.hint
+        write_outcome = exc.write_outcome
+        differences = exc.differences
     elif isinstance(exc, (ValueError, TypeError)):
         code = ErrorCode.INVALID_ARGUMENT
         message = str(exc) or exc.__class__.__name__
         hint = None
+        write_outcome = None
+        differences = ()
     else:
         code = ErrorCode.INTERNAL_ERROR
         message = str(exc) or exc.__class__.__name__
         hint = None
+        write_outcome = None
+        differences = ()
     return ErrorReport(
         code=code,
         message=message,
         hint=hint,
         exception_type=exc.__class__.__name__,
+        write_outcome=write_outcome,
+        differences=differences,
     )

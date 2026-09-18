@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import statistics
 import time
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -14,7 +16,15 @@ from mysql_client.driver_adapter import (
     QueryKiller,
     driver_failure_from_exception,
 )
-from mysql_client.enums import DriverFailureKind, SqlStatementType
+from mysql_client.enums import (
+    ComparisonDifferenceKind,
+    ComparisonLocation,
+    ComparisonSide,
+    DriverFailureKind,
+    ExecutionPolicy,
+    SqlStatementType,
+    WriteOutcome,
+)
 from mysql_client.errors import (
     AuthenticationError,
     ClientError,
@@ -24,9 +34,11 @@ from mysql_client.errors import (
     QueryCancelledError,
     QueryExecutionError,
     QueryTimeoutError,
-    UnsupportedSqlError,
+    WriteExecutionError,
 )
 from mysql_client.inspection_queries import build_inspection_query
+from mysql_client.parser import MySqlSqlParser
+from mysql_client.policy import validate_execution_policy
 from mysql_client.read_executor import ReadExecutor
 from mysql_client.request_models import (
     BenchmarkRequest,
@@ -41,6 +53,7 @@ from mysql_client.request_models import (
 from mysql_client.result_models import (
     BenchmarkResult,
     CompareResult,
+    ComparisonDifference,
     ExecutionMetadata,
     ExplainResult,
     InspectionResult,
@@ -51,12 +64,13 @@ from mysql_client.result_models import (
 from mysql_client.write_executor import WriteExecutor
 
 if TYPE_CHECKING:
-    from collections.abc import Coroutine
+    from collections.abc import Callable, Coroutine
 
     from mysql_client.cancellation import CancellationToken
     from mysql_client.configuration import MySqlConnectionConfig
     from mysql_client.driver_adapter import DriverConnection, DriverFactory
     from mysql_client.enums import CancellationReason
+    from mysql_client.value_models import DatabaseValue
 
 
 class SessionState(str, Enum):
@@ -100,6 +114,7 @@ class MySqlSession:
             default_max_bytes=self._policy.max_bytes,
         )
         self._write_executor = WriteExecutor()
+        self._parser = MySqlSqlParser()
 
     @property
     def state(self) -> SessionState:
@@ -144,6 +159,12 @@ class MySqlSession:
             self._state = SessionState.CLOSED
 
     async def execute_read(self, request: ReadRequest) -> QueryResult:
+        parsed = self._parser.parse(request.sql)
+        validate_execution_policy(parsed, ExecutionPolicy.READ_ONLY)
+        request = self._read_request_with_statement_type(request, parsed.statement_type)
+        return await self._execute_read_request(request)
+
+    async def _execute_read_request(self, request: ReadRequest) -> QueryResult:
         connection = self._require_connection()
         started_at = datetime.now(timezone.utc)
         started = time.perf_counter()
@@ -180,6 +201,15 @@ class MySqlSession:
 
     async def execute_write(self, request: WriteRequest) -> WriteResult:
         connection = self._require_connection()
+        parsed = self._parser.parse(request.sql)
+        validate_execution_policy(parsed, ExecutionPolicy.WRITE)
+        request = WriteRequest(
+            sql=request.sql,
+            parameters=request.parameters,
+            statement_type=parsed.statement_type,
+            transaction=request.transaction,
+            statement_timeout_seconds=request.statement_timeout_seconds,
+        )
         started_at = datetime.now(timezone.utc)
         started = time.perf_counter()
         metadata = self._metadata(request.statement_type, started_at, started)
@@ -188,33 +218,56 @@ class MySqlSession:
                 self._write_executor.execute(connection, request, metadata=metadata),
                 timeout=request.statement_timeout_seconds or self._policy.statement_timeout_seconds,
             )
+        except WriteExecutionError as exc:
+            if exc.write_outcome is WriteOutcome.UNKNOWN:
+                await self._invalidate()
+            raise
         except DriverFailure as exc:
             await self._invalidate()
+            if exc.kind is DriverFailureKind.TIMEOUT:
+                raise QueryTimeoutError(self._timeout_message(), write_outcome=WriteOutcome.UNKNOWN) from exc
+            if exc.kind is DriverFailureKind.CANCELLED:
+                raise QueryCancelledError(
+                    "MySQL 写入已取消; 受影响连接已丢弃, 状态未知",
+                    write_outcome=WriteOutcome.UNKNOWN,
+                ) from exc
             raise self._client_error(exc, operation="write") from exc
-        except (QueryTimeoutError, QueryCancelledError):
+        except QueryTimeoutError as exc:
             await self._invalidate()
+            raise QueryTimeoutError(self._timeout_message(), write_outcome=WriteOutcome.UNKNOWN) from exc
+        except QueryCancelledError as exc:
+            await self._invalidate()
+            raise QueryCancelledError(
+                "MySQL 写入已取消; 受影响连接已丢弃, 状态未知",
+                write_outcome=WriteOutcome.UNKNOWN,
+            ) from exc
+        except ClientError:
             raise
         except BaseException as exc:
             await self._invalidate()
             if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
-                raise QueryTimeoutError(self._timeout_message()) from exc
+                raise QueryTimeoutError(self._timeout_message(), write_outcome=WriteOutcome.UNKNOWN) from exc
             failure = driver_failure_from_exception(exc, operation="write")
+            if failure.kind is DriverFailureKind.TIMEOUT:
+                raise QueryTimeoutError(self._timeout_message(), write_outcome=WriteOutcome.UNKNOWN) from exc
+            if failure.kind is DriverFailureKind.CANCELLED:
+                raise QueryCancelledError(
+                    "MySQL 写入已取消; 受影响连接已丢弃, 状态未知",
+                    write_outcome=WriteOutcome.UNKNOWN,
+                ) from exc
             raise self._client_error(failure, operation="write") from exc
         return self._with_duration(result, started)
 
     async def execute_explain(self, request: ExplainRequest) -> ExplainResult:
-        prefix = "EXPLAIN"
-        if request.analyze:
-            prefix += " ANALYZE"
-        elif request.format.value != "traditional":
-            prefix += f" FORMAT={request.format.value.upper()}"
+        parsed = self._parser.parse(request.sql)
+        validate_execution_policy(parsed, ExecutionPolicy.EXPLAIN)
         read_request = ReadRequest(
-            sql=SqlInput.inline(f"{prefix} {request.sql.text}"),
+            sql=request.sql,
             parameters=request.parameters,
             statement_timeout_seconds=request.statement_timeout_seconds,
             statement_type=SqlStatementType.EXPLAIN,
         )
-        result = await self.execute_read(read_request)
+        result = await self._execute_read_request(read_request)
         return ExplainResult(
             format=request.format,
             columns=result.columns,
@@ -223,8 +276,62 @@ class MySqlSession:
         )
 
     async def execute_benchmark(self, request: BenchmarkRequest) -> BenchmarkResult:
-        del request
-        raise UnsupportedSqlError("benchmark 不属于 mysql-client session 的基础执行能力")
+        parsed = self._parser.parse(request.sql)
+        validate_execution_policy(parsed, ExecutionPolicy.READ_ONLY)
+        iterations = request.iterations or self._policy.benchmark_iterations
+        warmup_iterations = request.warmup_iterations
+        if warmup_iterations is None:
+            warmup_iterations = self._policy.benchmark_warmup_iterations
+        if iterations > self._policy.benchmark_max_iterations:
+            raise InvalidArgumentError("benchmark 迭代次数超过上限")
+        if warmup_iterations > self._policy.benchmark_max_warmup_iterations:
+            raise InvalidArgumentError("benchmark 预热次数超过上限")
+
+        started_at = datetime.now(timezone.utc)
+        started = time.perf_counter()
+        for _ in range(warmup_iterations):
+            await self.execute_read(
+                ReadRequest(
+                    sql=request.sql,
+                    parameters=request.parameters,
+                    max_rows=1,
+                    statement_timeout_seconds=request.statement_timeout_seconds,
+                    statement_type=parsed.statement_type,
+                )
+            )
+
+        samples: list[float] = []
+        for _ in range(iterations):
+            sample_started = time.perf_counter()
+            await self.execute_read(
+                ReadRequest(
+                    sql=request.sql,
+                    parameters=request.parameters,
+                    max_rows=1,
+                    statement_timeout_seconds=request.statement_timeout_seconds,
+                    statement_type=parsed.statement_type,
+                )
+            )
+            samples.append((time.perf_counter() - sample_started) * 1000)
+
+        sample_values = tuple(samples)
+        metadata = ExecutionMetadata(
+            statement_type=parsed.statement_type,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            row_count=0,
+            target=self._target,
+            started_at=started_at,
+        )
+        return BenchmarkResult(
+            samples_ms=sample_values,
+            metadata=metadata,
+            iterations=iterations,
+            warmup_iterations=warmup_iterations,
+            minimum_ms=min(sample_values),
+            maximum_ms=max(sample_values),
+            average_ms=statistics.fmean(sample_values),
+            median_ms=statistics.median(sample_values),
+        )
 
     async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
         """Execute a centrally-defined read-only inspection query."""
@@ -240,8 +347,127 @@ class MySqlSession:
         return InspectionResult(command=definition.command, query=result)
 
     async def execute_compare(self, request: CompareRequest) -> CompareResult:
-        del request
-        raise UnsupportedSqlError("compare 不属于 mysql-client session 的基础执行能力")
+        left_parsed = self._parser.parse(request.left_sql)
+        right_parsed = self._parser.parse(request.right_sql)
+        validate_execution_policy(left_parsed, ExecutionPolicy.READ_ONLY)
+        validate_execution_policy(right_parsed, ExecutionPolicy.READ_ONLY)
+        left = await self.execute_read(
+            ReadRequest(
+                sql=request.left_sql,
+                parameters=request.left_parameters,
+                statement_timeout_seconds=request.statement_timeout_seconds,
+                statement_type=left_parsed.statement_type,
+            )
+        )
+        right = await self.execute_read(
+            ReadRequest(
+                sql=request.right_sql,
+                parameters=request.right_parameters,
+                statement_timeout_seconds=request.statement_timeout_seconds,
+                statement_type=right_parsed.statement_type,
+            )
+        )
+        equal, differences = self._compare_results(left, right, request.key_columns, request.max_diff_samples)
+        return CompareResult(equal=equal, left=left, right=right, differences=differences)
+
+    @staticmethod
+    def _read_request_with_statement_type(request: ReadRequest, statement_type: SqlStatementType) -> ReadRequest:
+        return ReadRequest(
+            sql=request.sql,
+            parameters=request.parameters,
+            max_rows=request.max_rows,
+            max_bytes=request.max_bytes,
+            statement_timeout_seconds=request.statement_timeout_seconds,
+            statement_type=statement_type,
+        )
+
+    @staticmethod
+    def _compare_results(
+        left: QueryResult,
+        right: QueryResult,
+        key_columns: tuple[str, ...],
+        max_diff_samples: int | None,
+    ) -> tuple[bool, tuple[ComparisonDifference, ...]]:
+        limit = max_diff_samples if max_diff_samples is not None else 20
+        differences: list[ComparisonDifference] = []
+        mismatch = False
+
+        def add(kind: ComparisonDifferenceKind, location: ComparisonLocation) -> None:
+            nonlocal mismatch
+            mismatch = True
+            if len(differences) < limit:
+                differences.append(ComparisonDifference(kind=kind, location=location))
+
+        left_columns = tuple((column.name, column.type_name) for column in left.columns)
+        right_columns = tuple((column.name, column.type_name) for column in right.columns)
+        if left_columns != right_columns:
+            add(ComparisonDifferenceKind.COLUMN_DEFINITION, ComparisonLocation.COLUMNS)
+            return not mismatch, tuple(differences)
+
+        if key_columns:
+            left_indexes = MySqlSession._key_indexes(left, key_columns, add)
+            right_indexes = MySqlSession._key_indexes(right, key_columns, add)
+            if left_indexes is None or right_indexes is None:
+                return not mismatch, tuple(differences)
+            left_rows = MySqlSession._rows_by_key(left, left_indexes, add, ComparisonSide.LEFT)
+            right_rows = MySqlSession._rows_by_key(right, right_indexes, add, ComparisonSide.RIGHT)
+            if left_rows is None or right_rows is None:
+                return not mismatch, tuple(differences)
+            for key in left_rows:
+                if key not in right_rows:
+                    add(ComparisonDifferenceKind.ROW_VALUE, ComparisonLocation.RIGHT_MISSING_KEY)
+                elif left_rows[key] != right_rows[key]:
+                    add(ComparisonDifferenceKind.ROW_VALUE, ComparisonLocation.ROW)
+            for key in right_rows:
+                if key not in left_rows:
+                    add(ComparisonDifferenceKind.ROW_VALUE, ComparisonLocation.LEFT_MISSING_KEY)
+            return not mismatch, tuple(differences)
+
+        if len(left.rows) != len(right.rows):
+            add(ComparisonDifferenceKind.ROW_COUNT, ComparisonLocation.ROW_COUNT)
+        for left_row, right_row in zip(left.rows, right.rows, strict=False):
+            if left_row != right_row:
+                add(ComparisonDifferenceKind.ROW_VALUE, ComparisonLocation.ROW)
+                if len(differences) >= limit:
+                    break
+        return not mismatch, tuple(differences)
+
+    @staticmethod
+    def _key_indexes(
+        result: QueryResult,
+        key_columns: tuple[str, ...],
+        add: Callable[[ComparisonDifferenceKind, ComparisonLocation], None],
+    ) -> tuple[int, ...] | None:
+        indexes: list[int] = []
+        column_names = tuple(column.name for column in result.columns)
+        for name in key_columns:
+            if name not in column_names:
+                add(ComparisonDifferenceKind.KEY_COLUMN, ComparisonLocation.COLUMNS)
+                return None
+            indexes.append(column_names.index(name))
+        return tuple(indexes)
+
+    @staticmethod
+    def _rows_by_key(
+        result: QueryResult,
+        indexes: tuple[int, ...],
+        add: Callable[[ComparisonDifferenceKind, ComparisonLocation], None],
+        side: ComparisonSide,
+    ) -> dict[str, tuple[DatabaseValue, ...]] | None:
+        rows: dict[str, tuple[DatabaseValue, ...]] = {}
+        for row in result.rows:
+            key_values = tuple(row.values[index] for index in indexes)
+            key = json.dumps(key_values, default=str, sort_keys=True, ensure_ascii=False)
+            if key in rows:
+                duplicate_location = (
+                    ComparisonLocation.LEFT_DUPLICATE_KEY
+                    if side is ComparisonSide.LEFT
+                    else ComparisonLocation.RIGHT_DUPLICATE_KEY
+                )
+                add(ComparisonDifferenceKind.DUPLICATE_KEY, duplicate_location)
+                return None
+            rows[key] = row.values
+        return rows
 
     def _require_connection(self) -> DriverConnection:
         if self._state is not SessionState.OPEN or self._connection is None:

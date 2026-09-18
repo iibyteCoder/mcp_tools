@@ -31,6 +31,9 @@ db-mysql --json --profile billing-dev schema stats --table invoices
 db-mysql --json --profile billing-dev sql read --sql "SELECT id, total FROM invoices ORDER BY id"
 db-mysql --json --profile billing-dev sql explain --sql "EXPLAIN SELECT id FROM invoices"
 db-mysql --json --profile billing-dev sql read --sql-file query.sql
+db-mysql --json --profile billing-dev sql write --sql "UPDATE invoices SET total = %s WHERE id = %s" --params-file write.json --transaction commit
+db-mysql --json --profile billing-dev sql benchmark --sql "SELECT id FROM invoices" --iterations 10 --warmup-iterations 1
+db-mysql --json --profile billing-dev sql compare --left-sql-file old.sql --right-sql-file new.sql --key-column id
 ```
 
 Read [references/connections.md](references/connections.md) for profile configuration and directory binding.
@@ -43,7 +46,7 @@ Inspection results are returned under `data.result` with typed columns, rows, an
 
 ## SQL input validation
 
-`sql read`, `sql write`, `sql explain`, `sql benchmark`, and `sql compare` accept SQL through these inputs:
+`sql read`, `sql write`, `sql explain`, and `sql benchmark` accept SQL through these inputs:
 
 - `--sql TEXT`
 - `--sql-file PATH`; `--sql-file -` reads stdin
@@ -51,11 +54,17 @@ Inspection results are returned under `data.result` with typed columns, rows, an
 
 `--sql` and `--sql-file` are mutually exclusive. SQL files are UTF-8. Passwords are never SQL input and are never accepted inline by this contract.
 
-Each invocation accepts exactly one SQL statement. The current CLI foundation validates and classifies the statement before any execution work. It does not wrap SQL, add `LIMIT` or `OFFSET`, or paginate results.
+`sql compare` accepts two explicit inputs: `--left-sql` or `--left-sql-file`, and `--right-sql` or `--right-sql-file`. Its parameter files are `--left-params-file` and `--right-params-file`. Repeat `--key-column` for keyed comparison; `--max-diff-samples` bounds the secret-free difference locations.
+
+Each invocation accepts exactly one SQL statement. The CLI validates and classifies the statement before execution. It does not wrap SQL, add `LIMIT` or `OFFSET`, or paginate results.
 
 The requested intent must match the parser classification: `read` for read statements, `write` for authorized mutations or DDL, and `explain` for an explain statement. `benchmark` and `compare` apply their documented measurement or comparison behavior to the supplied statement while retaining the same input, parsing, and output rules. A mismatch is an error.
 
-With `--json`, stdout contains exactly one `ok`/`data`/`meta` or `ok`/`error`/`meta` document and no logs. A nonzero exit status or `ok: false` means failure. Do not silently select another server, profile, or database, and do not run a probe after every successful call.
+`sql write` accepts `--transaction commit|rollback`; a write failure reports whether the request was rolled back, had a determined failure, or reached an unknown state. `sql read` accepts optional client-side `--max-rows` and `--max-bytes` bounds without changing the SQL. `sql benchmark` accepts `--iterations`, `--warmup-iterations`, and `--timeout`; iterations are policy-bounded and never run indefinitely, and only read statements are accepted.
+
+`sql explain` executes the supplied `EXPLAIN` or `EXPLAIN ANALYZE` text exactly as provided. It does not prepend `EXPLAIN`, add a format clause, wrap the query, or probe the target.
+
+With `--json`, stdout contains exactly one `ok`/`data`/`meta` or `ok`/`error`/`meta` document and no logs. A nonzero exit status or `ok: false` means failure. SQL execution requires an explicit `--profile`; without a selected target, the CLI performs local parse/input diagnostics only. Do not silently select another server, profile, or database, and do not run a probe after every successful call.
 
 ## Results and errors
 
@@ -69,6 +78,8 @@ Read `data.status`, `data.profile`, and `data.result` from an inspection success
 - `cancelled`: inspect any externally visible effect before repeating a mutating operation.
 - `database_not_found`: verify the selected database without switching targets.
 - `execution_failed`: diagnose the returned database error without silently changing connections.
+- `unsupported_sql`: choose a statement supported by the requested SQL command.
+- `comparison_failed`: inspect the reported difference locations and correct the comparison inputs.
 
 ## Output and execution rules
 

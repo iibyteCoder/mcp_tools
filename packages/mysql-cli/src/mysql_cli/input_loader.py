@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
 from mysql_cli.command_model import (
     CommandRequest,
@@ -15,6 +12,7 @@ from mysql_cli.command_model import (
     ExitCode,
     InputSource,
     ParameterKind,
+    SqlInputSpec,
 )
 from mysql_cli.errors import CliFailure, ErrorDetail
 from mysql_cli.json_codec import (
@@ -25,7 +23,7 @@ from mysql_cli.json_codec import (
     is_json_object,
     parse_json_document,
 )
-from mysql_client import SqlInput
+from mysql_client import DatabaseParameters, DatabaseValue, SqlInput
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -42,6 +40,18 @@ class ParameterDocument:
 
         return len(self.values)
 
+    @property
+    def bindings(self) -> DatabaseParameters:
+        """Return validated DB-API positional or named parameter bindings."""
+
+        if self.kind is ParameterKind.ARRAY:
+            if not isinstance(self.values, list):
+                raise TypeError("数组参数文档类型无效")
+            return tuple(_database_value(item) for item in self.values)
+        if not isinstance(self.values, dict):
+            raise TypeError("对象参数文档类型无效")
+        return {key: _database_value(value) for key, value in self.values.items()}
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class LoadedInputs:
@@ -49,6 +59,10 @@ class LoadedInputs:
 
     sql: SqlInput | None
     parameters: ParameterDocument | None
+    compare_left_sql: SqlInput | None = None
+    compare_right_sql: SqlInput | None = None
+    compare_left_parameters: ParameterDocument | None = None
+    compare_right_parameters: ParameterDocument | None = None
 
 
 def load_inputs(request: CommandRequest, *, stdin_text: str | None) -> LoadedInputs:
@@ -56,7 +70,18 @@ def load_inputs(request: CommandRequest, *, stdin_text: str | None) -> LoadedInp
 
     sql = _load_sql(request, stdin_text=stdin_text)
     parameters = _load_parameters(request.params_file)
-    return LoadedInputs(sql=sql, parameters=parameters)
+    left_sql = _load_sql_spec(request.compare_left_sql_input, stdin_text=stdin_text)
+    right_sql = _load_sql_spec(request.compare_right_sql_input, stdin_text=stdin_text)
+    left_parameters = _load_parameters(request.compare_left_params_file)
+    right_parameters = _load_parameters(request.compare_right_params_file)
+    return LoadedInputs(
+        sql=sql,
+        parameters=parameters,
+        compare_left_sql=left_sql,
+        compare_right_sql=right_sql,
+        compare_left_parameters=left_parameters,
+        compare_right_parameters=right_parameters,
+    )
 
 
 def _load_sql(request: CommandRequest, *, stdin_text: str | None) -> SqlInput | None:
@@ -116,6 +141,35 @@ def _load_parameters(path: Path | None) -> ParameterDocument | None:
         ),
         exit_code=ExitCode.INPUT_ERROR,
     )
+
+
+def _load_sql_spec(spec: SqlInputSpec | None, *, stdin_text: str | None) -> SqlInput | None:
+    if spec is None:
+        return None
+    source = spec.source
+    text = spec.text
+    path = spec.path
+    if source is InputSource.INLINE:
+        if not isinstance(text, str):
+            raise _input_failure("比较内联 SQL 输入不完整", DiagnosticErrorType.FILE_READ_ERROR, source=source)
+        return SqlInput.inline(text)
+    if source is InputSource.STDIN:
+        if stdin_text is None:
+            raise _input_failure("未提供标准输入 SQL", DiagnosticErrorType.FILE_READ_ERROR, source=source)
+        return SqlInput.stdin(stdin_text)
+    if source is InputSource.FILE and isinstance(path, Path):
+        return SqlInput.file(_read_text(path, source=source), path)
+    raise _input_failure("比较 SQL 输入来源无效", DiagnosticErrorType.FILE_READ_ERROR, source=source)
+
+
+def _database_value(value: object) -> DatabaseValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, list):
+        return [_database_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _database_value(item) for key, item in value.items()}
+    raise TypeError(f"参数值类型无效: {type(value).__name__}")
 
 
 def _read_text(path: Path, *, source: InputSource) -> str:

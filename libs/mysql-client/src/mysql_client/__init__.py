@@ -13,6 +13,9 @@ from mysql_client.driver_adapter import (
 from mysql_client.enums import (
     CancellationReason,
     Capability,
+    ComparisonDifferenceKind,
+    ComparisonLocation,
+    ComparisonSide,
     ErrorCode,
     ExecutionPolicy,
     ExplainFormat,
@@ -22,6 +25,7 @@ from mysql_client.enums import (
     SqlParseReason,
     SqlStatementType,
     TransactionAction,
+    WriteOutcome,
 )
 from mysql_client.errors import (
     AuthenticationError,
@@ -38,6 +42,7 @@ from mysql_client.errors import (
     QueryTimeoutError,
     SqlParseError,
     UnsupportedSqlError,
+    WriteExecutionError,
     error_report_from_exception,
 )
 from mysql_client.inspection_queries import InspectionQueryDefinition, build_inspection_query
@@ -67,6 +72,7 @@ from mysql_client.result_models import (
     BenchmarkResult,
     ColumnDefinition,
     CompareResult,
+    ComparisonDifference,
     DatabaseRow,
     ErrorReport,
     ExecutionMetadata,
@@ -81,6 +87,7 @@ from mysql_client.session import MySqlSession, SessionState
 from mysql_client.value_models import (
     ByteCount,
     DatabaseName,
+    DatabaseParameters,
     DatabaseScalar,
     DatabaseValue,
     JsonScalar,
@@ -106,11 +113,16 @@ __all__ = [
     "ColumnDefinition",
     "CompareRequest",
     "CompareResult",
+    "ComparisonDifference",
+    "ComparisonDifferenceKind",
     "ComparisonError",
+    "ComparisonLocation",
+    "ComparisonSide",
     "ConfigurationError",
     "ConnectionError",
     "DatabaseName",
     "DatabaseNotFoundError",
+    "DatabaseParameters",
     "DatabaseRow",
     "DatabaseScalar",
     "DatabaseValue",
@@ -173,6 +185,8 @@ __all__ = [
     "TargetMetadata",
     "TransactionAction",
     "UnsupportedSqlError",
+    "WriteExecutionError",
+    "WriteOutcome",
     "WriteRequest",
     "WriteResult",
     "build_inspection_query",

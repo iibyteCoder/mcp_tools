@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import TYPE_CHECKING
 
+from mysql_client import TransactionAction
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -104,6 +106,7 @@ class DiagnosticErrorType(str, Enum):
     CANCELLED = "cancelled"
     EXECUTION = "execution_failed"
     CONFIGURATION = "configuration_failed"
+    COMPARISON = "comparison_failed"
 
 
 class ErrorCode(str, Enum):
@@ -206,6 +209,18 @@ class CommandRequest:
     output_mode: OutputMode = OutputMode.JSON
     sql_input: SqlInputSpec | None = None
     params_file: Path | None = None
+    sql_max_rows: int | None = None
+    sql_max_bytes: int | None = None
+    sql_timeout_seconds: float | None = None
+    sql_iterations: int | None = None
+    sql_warmup_iterations: int | None = None
+    sql_transaction: TransactionAction = TransactionAction.COMMIT
+    compare_left_sql_input: SqlInputSpec | None = None
+    compare_right_sql_input: SqlInputSpec | None = None
+    compare_left_params_file: Path | None = None
+    compare_right_params_file: Path | None = None
+    compare_key_columns: tuple[str, ...] = ()
+    compare_max_diff_samples: int | None = None
     selected_profile: ProfileName | None = None
     profile_name: ProfileName | None = None
     profile_new_name: ProfileName | None = None

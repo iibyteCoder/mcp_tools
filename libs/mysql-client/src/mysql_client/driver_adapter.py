@@ -4,16 +4,71 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Sequence
+from collections.abc import Awaitable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 from mysql_client.enums import DriverFailureKind
 
 if TYPE_CHECKING:
     from mysql_client.configuration import MySqlConnectionConfig
-    from mysql_client.value_models import DatabaseValue
+    from mysql_client.value_models import DatabaseParameters, DatabaseValue
+
+
+class _RawCursor(Protocol):
+    """Minimal structural surface exposed by an aiomysql cursor."""
+
+    @property
+    def description(self) -> Sequence[object] | None: ...
+
+    @property
+    def rowcount(self) -> object: ...
+
+    @property
+    def lastrowid(self) -> object: ...
+
+    def execute(self, sql: str, parameters: DatabaseParameters) -> Awaitable[object]: ...
+
+    def fetchmany(self, size: int) -> Awaitable[Sequence[object]]: ...
+
+
+class _RawCursorContext(Protocol):
+    async def __aenter__(self) -> _RawCursor: ...
+
+    async def __aexit__(self, exc_type: object, exc_value: object, traceback: object) -> bool | None: ...
+
+
+class _RawConnection(Protocol):
+    def thread_id(self) -> object: ...
+
+    def cursor(self) -> _RawCursorContext: ...
+
+    def begin(self) -> object: ...
+
+    def commit(self) -> object: ...
+
+    def rollback(self) -> object: ...
+
+    def close(self) -> object: ...
+
+    def wait_closed(self) -> object: ...
+
+
+class _AiomysqlModule(Protocol):
+    def connect(
+        self,
+        *,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        db: str | None,
+        charset: str,
+        connect_timeout: float,
+        read_timeout: float,
+        autocommit: bool,
+    ) -> Awaitable[_RawConnection]: ...
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -50,7 +105,7 @@ class DriverCursor(Protocol):
     @property
     def lastrowid(self) -> int | None: ...
 
-    async def execute(self, sql: str, parameters: tuple[DatabaseValue, ...]) -> None: ...
+    async def execute(self, sql: str, parameters: DatabaseParameters) -> None: ...
 
     async def fetchmany(self, size: int) -> Sequence[DriverRow]: ...
 
@@ -123,7 +178,7 @@ class AiomysqlDriverFactory:
 
     async def connect(self, config: MySqlConnectionConfig) -> DriverConnection:
         try:
-            module: Any = importlib.import_module("aiomysql")
+            module = cast("_AiomysqlModule", importlib.import_module("aiomysql"))
             raw_connection = await module.connect(
                 host=config.host,
                 port=config.port,
@@ -156,7 +211,7 @@ class AiomysqlDriverFactory:
 
 
 class _AiomysqlConnectionAdapter:
-    def __init__(self, raw_connection: Any) -> None:
+    def __init__(self, raw_connection: _RawConnection) -> None:
         self._raw_connection = raw_connection
 
     @property
@@ -213,7 +268,7 @@ class _AiomysqlConnectionAdapter:
 
 
 class _AiomysqlCursorContext(AbstractAsyncContextManager[DriverCursor]):
-    def __init__(self, raw_context: Any) -> None:
+    def __init__(self, raw_context: _RawCursorContext) -> None:
         self._raw_context = raw_context
 
     async def __aenter__(self) -> DriverCursor:
@@ -227,7 +282,7 @@ class _AiomysqlCursorContext(AbstractAsyncContextManager[DriverCursor]):
 
     async def __aexit__(self, exc_type: object, exc_value: object, traceback: object) -> bool | None:
         try:
-            return cast("bool | None", await self._raw_context.__aexit__(exc_type, exc_value, traceback))
+            return await self._raw_context.__aexit__(exc_type, exc_value, traceback)
         except asyncio.CancelledError:
             raise
         except BaseException as exc:
@@ -235,7 +290,7 @@ class _AiomysqlCursorContext(AbstractAsyncContextManager[DriverCursor]):
 
 
 class _AiomysqlCursorAdapter:
-    def __init__(self, raw_cursor: Any) -> None:
+    def __init__(self, raw_cursor: _RawCursor) -> None:
         self._raw_cursor = raw_cursor
 
     @property
@@ -255,7 +310,7 @@ class _AiomysqlCursorAdapter:
         value = getattr(self._raw_cursor, "lastrowid", None)
         return value if isinstance(value, int) else None
 
-    async def execute(self, sql: str, parameters: tuple[DatabaseValue, ...]) -> None:
+    async def execute(self, sql: str, parameters: DatabaseParameters) -> None:
         try:
             await self._raw_cursor.execute(sql, parameters)
         except asyncio.CancelledError:
@@ -273,7 +328,7 @@ class _AiomysqlCursorAdapter:
         return cast("Sequence[DriverRow]", rows)
 
 
-def _column_from_raw(raw: Any) -> DriverColumn:
+def _column_from_raw(raw: object) -> DriverColumn:
     if isinstance(raw, tuple) and raw:
         name = str(raw[0])
         type_name = str(raw[1]) if len(raw) > 1 else "UNKNOWN"

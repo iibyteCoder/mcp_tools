@@ -35,6 +35,7 @@ from mysql_cli.output_model import (
     InspectionCommandData,
     ParameterDiagnostic,
     ProfileCommandData,
+    SqlCommandData,
     SqlDiagnostic,
     SuccessEnvelope,
 )
@@ -42,6 +43,7 @@ from mysql_cli.profile_commands import execute_profile_command
 from mysql_cli.profile_service import ProfileService, ProfileServiceError, ProfileServiceErrorCode
 from mysql_cli.profile_store import JsonProfileStore, ProfileStoreError
 from mysql_cli.secret_store import KeyringSecretStore
+from mysql_cli.sql_service import SqlExecutionService
 from mysql_client import (
     ClientError,
     ExecutionPolicy,
@@ -50,6 +52,7 @@ from mysql_client import (
     ParsedSql,
     SqlParseError,
     UnsupportedSqlError,
+    error_report_from_exception,
     validate_execution_policy,
 )
 from mysql_client import (
@@ -68,7 +71,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if request.group is CommandGroup.HELP:
             parser.print_help()
             return int(ExitCode.SUCCESS)
-        profile_service = ProfileService(JsonProfileStore(), KeyringSecretStore())
+        profile_service = ProfileService(
+            JsonProfileStore(lock_timeout=JsonProfileStore.CLI_LOCK_TIMEOUT_SECONDS),
+            KeyringSecretStore(),
+        )
         if request.group is CommandGroup.PROFILE:
             profile_data: ProfileCommandData = asyncio.run(
                 execute_profile_command(
@@ -95,9 +101,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             _write_json(envelope, sys.stdout)
             return int(ExitCode.SUCCESS)
         stdin_text = _read_stdin_if_needed(
-            request.sql_input is not None and request.sql_input.source is InputSource.STDIN
+            (request.sql_input is not None and request.sql_input.source is InputSource.STDIN)
+            or (
+                request.compare_left_sql_input is not None
+                and request.compare_left_sql_input.source is InputSource.STDIN
+            )
+            or (
+                request.compare_right_sql_input is not None
+                and request.compare_right_sql_input.source is InputSource.STDIN
+            )
         )
         loaded = load_inputs(request, stdin_text=stdin_text)
+        if request.selected_profile is not None:
+            sql_data: SqlCommandData = asyncio.run(SqlExecutionService(profile_service).execute(request, loaded))
+            envelope = SuccessEnvelope(
+                ok=True,
+                data=sql_data,
+                meta=DiagnosticMetadata(
+                    command_group=request.group,
+                    action=request.action,
+                    input_source=request.sql_input.source if request.sql_input is not None else None,
+                ),
+            )
+            _write_json(envelope, sys.stdout)
+            return int(ExitCode.SUCCESS)
         diagnostic_data: CommandDiagnosticData = _diagnose(request, loaded)
         envelope = SuccessEnvelope(
             ok=True,
@@ -127,6 +154,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         failure = _client_failure(client_error)
         _write_failure(failure, sys.stdout, request=request)
         return int(failure.exit_code)
+    except KeyboardInterrupt:
+        cancelled = CliFailure(
+            code=ErrorCode.CANCELLED,
+            message="操作已取消",
+            retryable=False,
+            details=(ErrorDetail(error_type=DiagnosticErrorType.CANCELLED),),
+            exit_code=ExitCode.EXECUTION_ERROR,
+        )
+        _write_failure(cancelled, sys.stdout, request=request)
+        return int(cancelled.exit_code)
     except Exception:
         internal_failure = CliFailure(
             code=ErrorCode.INTERNAL_ERROR,
@@ -243,6 +280,8 @@ def _write_failure(
             message=failure.message,
             retryable=failure.retryable,
             details=failure.details,
+            write_outcome=failure.write_outcome,
+            differences=failure.differences,
         ),
         meta=DiagnosticMetadata(
             command_group=request.group if request is not None else None,
@@ -300,6 +339,7 @@ def _profile_service_failure(error: ProfileServiceError) -> CliFailure:
 
 
 def _client_failure(error: ClientError) -> CliFailure:
+    report = error_report_from_exception(error)
     mapping = {
         ClientErrorCode.INVALID_ARGUMENT: (ErrorCode.INVALID_ARGUMENT, DiagnosticErrorType.ARGUMENT_SYNTAX),
         ClientErrorCode.CONFIGURATION_FAILED: (ErrorCode.CONFIGURATION_FAILED, DiagnosticErrorType.CONFIGURATION),
@@ -312,7 +352,7 @@ def _client_failure(error: ClientError) -> CliFailure:
         ClientErrorCode.TIMEOUT: (ErrorCode.TIMEOUT, DiagnosticErrorType.TIMEOUT),
         ClientErrorCode.CANCELLED: (ErrorCode.CANCELLED, DiagnosticErrorType.CANCELLED),
         ClientErrorCode.QUERY_FAILED: (ErrorCode.EXECUTION_FAILED, DiagnosticErrorType.EXECUTION),
-        ClientErrorCode.COMPARISON_FAILED: (ErrorCode.COMPARISON_FAILED, DiagnosticErrorType.EXECUTION),
+        ClientErrorCode.COMPARISON_FAILED: (ErrorCode.COMPARISON_FAILED, DiagnosticErrorType.COMPARISON),
         ClientErrorCode.UNSUPPORTED_SQL: (ErrorCode.UNSUPPORTED_SQL, DiagnosticErrorType.POLICY_VIOLATION),
         ClientErrorCode.INVALID_SQL: (ErrorCode.INVALID_SQL, DiagnosticErrorType.SQL_PARSE),
         ClientErrorCode.INTERNAL_ERROR: (ErrorCode.INTERNAL_ERROR, DiagnosticErrorType.EXECUTION),
@@ -325,6 +365,8 @@ def _client_failure(error: ClientError) -> CliFailure:
         retryable=False,
         details=(ErrorDetail(error_type=error_type),),
         exit_code=exit_code,
+        write_outcome=report.write_outcome,
+        differences=report.differences,
     )
 
 
