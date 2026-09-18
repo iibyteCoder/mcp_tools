@@ -110,7 +110,6 @@ def make_profiles(tmp_path: Path) -> ProfileService:
             name=ProfileName(value="dev"),
             settings=ProfileSettingsPatch(host="db.example", user="alice"),
             password="password-is-not-output",
-            no_bind=True,
         )
     )
     return profiles

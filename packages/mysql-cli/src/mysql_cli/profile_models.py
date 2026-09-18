@@ -8,6 +8,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from mysql_client.configuration import (
+    DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_MYSQL_CHARSET,
+    DEFAULT_MYSQL_PORT,
+    DEFAULT_READ_TIMEOUT_SECONDS,
+)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProfileName:
@@ -48,12 +55,12 @@ class ProfileSettings:
     """Non-sensitive connection settings for one MySQL profile."""
 
     host: str
-    port: int = 3306
+    port: int = DEFAULT_MYSQL_PORT
     user: str = ""
     database: str | None = None
-    charset: str = "utf8mb4"
-    connect_timeout: float = 10.0
-    read_timeout: float = 30.0
+    charset: str = DEFAULT_MYSQL_CHARSET
+    connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS
+    read_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS
 
     def __post_init__(self) -> None:
         if not self.host.strip():
@@ -185,7 +192,6 @@ class ProfileSetRequest:
     settings: ProfileSettingsPatch
     password: str | None = field(default=None, repr=False)
     clear_password: bool = False
-    no_bind: bool = False
 
 
 def normalize_directory(path: Path) -> Path:

@@ -14,7 +14,7 @@ from mysql_client.driver_adapter import (
     DriverCursor,
     DriverFailure,
 )
-from mysql_client.enums import DriverFailureKind, InspectionCommand, SqlStatementType, TransactionAction
+from mysql_client.enums import DriverFailureKind, InspectionCommand, SqlStatementType, TransactionAction, WriteOutcome
 from mysql_client.errors import (
     AuthenticationError,
     ConnectionError,
@@ -226,6 +226,23 @@ async def test_timeout_kills_query_and_discards_connection() -> None:
 
 
 @pytest.mark.asyncio
+async def test_write_timeout_reports_unknown_outcome_after_cancelled_executor() -> None:
+    block = asyncio.Event()
+    connection = FakeConnection(FakeCursor((), block=block))
+    factory = FakeFactory(connection)
+    session = MySqlSession(config(), factory)
+    await session.connect()
+
+    with pytest.raises(QueryTimeoutError) as error:
+        await session.execute_write(
+            WriteRequest(sql=SqlInput.inline("UPDATE items SET name = %s"), statement_timeout_seconds=0.01)
+        )
+
+    assert error.value.write_outcome is WriteOutcome.UNKNOWN
+    assert session.state is SessionState.INVALIDATED
+
+
+@pytest.mark.asyncio
 async def test_cancellation_kills_query_and_discards_connection() -> None:
     block = asyncio.Event()
     connection = FakeConnection(FakeCursor((), block=block))
@@ -241,6 +258,27 @@ async def test_cancellation_kills_query_and_discards_connection() -> None:
         await running
     assert factory.kill_count == 1
     assert connection.close_count == 1
+    assert session.state is SessionState.INVALIDATED
+
+
+@pytest.mark.asyncio
+async def test_write_cancellation_reports_unknown_outcome_after_cancelled_executor() -> None:
+    block = asyncio.Event()
+    connection = FakeConnection(FakeCursor((), block=block))
+    factory = FakeFactory(connection)
+    token = CancellationToken()
+    session = MySqlSession(config(), factory, cancellation=token)
+    await session.connect()
+    running = asyncio.create_task(
+        session.execute_write(WriteRequest(sql=SqlInput.inline("UPDATE items SET name = %s")))
+    )
+    await asyncio.sleep(0)
+    await token.cancel()
+
+    with pytest.raises(QueryCancelledError) as error:
+        await running
+
+    assert error.value.write_outcome is WriteOutcome.UNKNOWN
     assert session.state is SessionState.INVALIDATED
 
 

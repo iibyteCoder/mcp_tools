@@ -86,7 +86,7 @@ def test_profile_set_uses_click_values_and_keeps_password_out_of_output(tmp_path
 
     result = CliRunner().invoke(
         cli,
-        ["profile", "set", "dev", "--host", "db.example", "--user", "alice", "--password", "secret", "--no-bind"],
+        ["profile", "set", "dev", "--host", "db.example", "--user", "alice", "--password", "secret"],
         obj=CliRuntime(profile_service=profiles),
     )
 

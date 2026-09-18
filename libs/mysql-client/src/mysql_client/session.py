@@ -367,7 +367,10 @@ class MySqlSession:
                 statement_type=right_parsed.statement_type,
             )
         )
-        equal, differences = self._compare_results(left, right, request.key_columns, request.max_diff_samples)
+        max_diff_samples = (
+            self._policy.max_diff_samples if request.max_diff_samples is None else request.max_diff_samples
+        )
+        equal, differences = self._compare_results(left, right, request.key_columns, max_diff_samples)
         return CompareResult(equal=equal, left=left, right=right, differences=differences)
 
     @staticmethod
@@ -386,16 +389,15 @@ class MySqlSession:
         left: QueryResult,
         right: QueryResult,
         key_columns: tuple[str, ...],
-        max_diff_samples: int | None,
+        max_diff_samples: int,
     ) -> tuple[bool, tuple[ComparisonDifference, ...]]:
-        limit = max_diff_samples if max_diff_samples is not None else 20
         differences: list[ComparisonDifference] = []
         mismatch = False
 
         def add(kind: ComparisonDifferenceKind, location: ComparisonLocation) -> None:
             nonlocal mismatch
             mismatch = True
-            if len(differences) < limit:
+            if len(differences) < max_diff_samples:
                 differences.append(ComparisonDifference(kind=kind, location=location))
 
         left_columns = tuple((column.name, column.type_name) for column in left.columns)
@@ -428,7 +430,7 @@ class MySqlSession:
         for left_row, right_row in zip(left.rows, right.rows, strict=False):
             if left_row != right_row:
                 add(ComparisonDifferenceKind.ROW_VALUE, ComparisonLocation.ROW)
-                if len(differences) >= limit:
+                if len(differences) >= max_diff_samples:
                     break
         return not mismatch, tuple(differences)
 
@@ -514,7 +516,7 @@ class MySqlSession:
 
     @staticmethod
     async def _await_cancelled(task: asyncio.Task[_ResultT]) -> None:
-        with suppress(asyncio.CancelledError):
+        with suppress(BaseException):
             await task
 
     async def _abort_query(self) -> None:

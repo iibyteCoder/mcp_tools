@@ -65,7 +65,6 @@ def profile_request(name: str = "dev", *, host: str | None = "db.example") -> Pr
         name=ProfileName(value=name),
         settings=ProfileSettingsPatch(host=host, user="alice"),
         password="never-print-this",
-        no_bind=True,
     )
 
 
@@ -76,7 +75,6 @@ def test_set_updates_only_explicit_fields_and_keeps_password_secret(tmp_path: Pa
         ProfileSetRequest(
             name=created.name,
             settings=ProfileSettingsPatch(port=3307),
-            no_bind=True,
         )
     )
 
@@ -86,6 +84,34 @@ def test_set_updates_only_explicit_fields_and_keeps_password_secret(tmp_path: Pa
     assert updated.password_present is True
     assert secrets.values[created.name] == "never-print-this"
     assert "never-print-this" not in repr(updated)
+
+
+def test_set_never_changes_directory_bindings(tmp_path: Path) -> None:
+    service, _, _, _ = make_service(tmp_path)
+    service.set(profile_request())
+    service.bind(ProfileName(value="dev"), tmp_path)
+
+    service.set(
+        ProfileSetRequest(
+            name=ProfileName(value="dev"),
+            settings=ProfileSettingsPatch(port=3307),
+        )
+    )
+
+    selection = service.selection(None, directory=tmp_path / "child")
+    assert selection.profile.name == ProfileName(value="dev")
+
+
+def test_set_does_not_replace_invalid_zero_values_with_defaults(tmp_path: Path) -> None:
+    service, _, _, _ = make_service(tmp_path)
+
+    with pytest.raises(ProfileServiceError):
+        service.set(
+            ProfileSetRequest(
+                name=ProfileName(value="dev"),
+                settings=ProfileSettingsPatch(host="db.example", user="alice", connect_timeout=0),
+            )
+        )
 
 
 def test_bind_inherits_nearest_directory_and_unbind_is_exact(tmp_path: Path) -> None:

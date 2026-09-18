@@ -19,7 +19,17 @@ from mysql_cli.profile_models import (
     normalize_directory,
 )
 from mysql_cli.secret_store import KeyringSecretStore, SecretStoreError
-from mysql_client import AiomysqlDriverFactory, MySqlConnectionConfig, MySqlSession, SecretValue
+from mysql_client import (
+    DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_MYSQL_CHARSET,
+    DEFAULT_MYSQL_PORT,
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    AiomysqlDriverFactory,
+    ClientError,
+    MySqlConnectionConfig,
+    MySqlSession,
+    SecretValue,
+)
 
 if TYPE_CHECKING:
     from mysql_cli.profile_store import ProfileStore
@@ -103,6 +113,8 @@ class ProfileService:
     def connection_config(self, profile: ProfileRecord) -> MySqlConnectionConfig:
         """Build a secret-safe client config for one already-selected profile."""
 
+        if not profile.password_present:
+            raise ProfileServiceError(ProfileServiceErrorCode.SECRET_MISSING, "profile secret is missing")
         password = self._get_secret(profile.name)
         if password is None:
             raise ProfileServiceError(ProfileServiceErrorCode.SECRET_MISSING, "profile secret is missing")
@@ -127,12 +139,28 @@ class ProfileService:
             try:
                 settings = ProfileSettings(
                     host=request.settings.host,
-                    port=request.settings.port or 3306,
+                    port=(
+                        DEFAULT_MYSQL_PORT
+                        if request.settings.port is None
+                        else request.settings.port
+                    ),
                     user=request.settings.user,
                     database=request.settings.database,
-                    charset=request.settings.charset or "utf8mb4",
-                    connect_timeout=request.settings.connect_timeout or 10.0,
-                    read_timeout=request.settings.read_timeout or 30.0,
+                    charset=(
+                        DEFAULT_MYSQL_CHARSET
+                        if request.settings.charset is None
+                        else request.settings.charset
+                    ),
+                    connect_timeout=(
+                        DEFAULT_CONNECT_TIMEOUT_SECONDS
+                        if request.settings.connect_timeout is None
+                        else request.settings.connect_timeout
+                    ),
+                    read_timeout=(
+                        DEFAULT_READ_TIMEOUT_SECONDS
+                        if request.settings.read_timeout is None
+                        else request.settings.read_timeout
+                    ),
                 )
             except ValueError as exc:
                 raise ProfileServiceError(ProfileServiceErrorCode.INVALID, "profile settings are invalid") from exc
@@ -159,18 +187,13 @@ class ProfileService:
             profiles = tuple(record if item.name == request.name else item for item in registry.profiles)
             if existing is None:
                 profiles = (*profiles, record)
-            bindings = registry.bindings
-            if not request.no_bind:
-                binding = DirectoryBinding(path=self.working_directory, profile=request.name)
-                bindings = (*tuple(item for item in bindings if item.path != binding.path), binding)
-            return ProfileRegistry(profiles=profiles, bindings=bindings)
+            return ProfileRegistry(profiles=profiles, bindings=registry.bindings)
 
         self.store.update(update)
         return record
 
     def bind(self, name: ProfileName, directory: Path | None = None) -> DirectoryBinding:
-        profile = self.require(name)
-        del profile
+        self.require(name)
         binding = DirectoryBinding(path=directory or self.working_directory, profile=name)
 
         def update(registry: ProfileRegistry) -> ProfileRegistry:
@@ -185,7 +208,7 @@ class ProfileService:
         removed: list[DirectoryBinding] = []
 
         def update(registry: ProfileRegistry) -> ProfileRegistry:
-            bindings = []
+            bindings: list[DirectoryBinding] = []
             for binding in registry.bindings:
                 if binding.path == path:
                     removed.append(binding)
@@ -255,7 +278,7 @@ class ProfileService:
         config = self.connection_config(profile)
         try:
             await self.validator.validate(config)
-        except ProfileServiceError:
+        except (ClientError, ProfileServiceError):
             raise
         except Exception as exc:
             raise ProfileServiceError(ProfileServiceErrorCode.VALIDATION_FAILED, "profile validation failed") from exc

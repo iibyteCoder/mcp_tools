@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import click
 
@@ -17,48 +15,29 @@ from mysql_cli.command_model import (
     CommandGroup,
     CommandRequest,
     DiagnosticErrorType,
-    DiagnosticStatus,
     ErrorCode,
     ExitCode,
-    InputSource,
     OutputMode,
     SqlInputSpec,
 )
+from mysql_cli.command_runner import CliRuntime, CommandData, execute_request, request_requires_stdin
 from mysql_cli.errors import CliFailure, ErrorDetail
-from mysql_cli.input_loader import LoadedInputs, load_inputs
-from mysql_cli.inspection_service import InspectionService
 from mysql_cli.json_codec import encode_json_document
 from mysql_cli.output_model import (
-    CommandDiagnosticData,
     DiagnosticMetadata,
     ErrorBody,
     ErrorEnvelope,
-    InspectionCommandData,
-    ParameterDiagnostic,
-    ProfileCommandData,
-    SqlCommandData,
-    SqlDiagnostic,
     SuccessEnvelope,
 )
-from mysql_cli.profile_commands import execute_profile_command
-from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch
-from mysql_cli.profile_service import ProfileService, ProfileServiceError, ProfileServiceErrorCode
-from mysql_cli.profile_store import JsonProfileStore, ProfileStoreError
-from mysql_cli.secret_store import KeyringSecretStore
-from mysql_cli.sql_service import SqlExecutionService
+from mysql_cli.profile_models import ProfileName, ProfileSettingsPatch, RegistryErrorCode
+from mysql_cli.profile_service import ProfileServiceError, ProfileServiceErrorCode
+from mysql_cli.profile_store import ProfileStoreError
 from mysql_client import (
     ClientError,
     DatabaseName,
-    ExecutionPolicy,
-    ExecutionPolicyError,
-    MySqlSqlParser,
-    ParsedSql,
-    SqlParseError,
     TableName,
     TransactionAction,
-    UnsupportedSqlError,
     error_report_from_exception,
-    validate_execution_policy,
 )
 from mysql_client import ErrorCode as ClientErrorCode
 
@@ -67,39 +46,6 @@ if TYPE_CHECKING:
 
 
 CommandCallback = TypeVar("CommandCallback", bound=Callable[..., object])
-
-
-class InspectionExecutor(Protocol):
-    """Typed inspection service dependency used by the command boundary."""
-
-    async def execute(self, request: CommandRequest) -> InspectionCommandData: ...
-
-
-class SqlExecutor(Protocol):
-    """Typed SQL service dependency used by the command boundary."""
-
-    async def execute(self, request: CommandRequest, inputs: LoadedInputs) -> SqlCommandData: ...
-
-
-@dataclass(slots=True)
-class CliRuntime:
-    """Mutable invocation state kept outside Click command callbacks."""
-
-    profile_service: ProfileService
-    inspection_service: InspectionExecutor | None = None
-    sql_service: SqlExecutor | None = None
-    selected_profile: ProfileName | None = None
-    request: CommandRequest | None = None
-
-    @classmethod
-    def create_default(cls) -> CliRuntime:
-        """Build production services without contacting a database."""
-
-        profiles = ProfileService(
-            JsonProfileStore(lock_timeout=JsonProfileStore.CLI_LOCK_TIMEOUT_SECONDS),
-            KeyringSecretStore(),
-        )
-        return cls(profile_service=profiles)
 
 
 class _TypedParamType(click.ParamType[object, object]):
@@ -288,7 +234,6 @@ def profile_show(ctx: click.Context, name: ProfileName) -> None:
 @click.option("--read-timeout", type=POSITIVE_FLOAT)
 @click.option("--password", type=str)
 @click.option("--no-password", is_flag=True)
-@click.option("--no-bind", is_flag=True)
 @click.pass_context
 def profile_set(
     ctx: click.Context,
@@ -303,7 +248,6 @@ def profile_set(
     read_timeout: float | None,
     password: str | None,
     no_password: bool,
-    no_bind: bool,
 ) -> None:
     """Create or update one profile."""
 
@@ -329,7 +273,6 @@ def profile_set(
             ),
             profile_password=password,
             profile_clear_password=no_password,
-            profile_no_bind=no_bind,
         ),
     )
 
@@ -679,30 +622,12 @@ def _selected_profile(ctx: click.Context) -> ProfileName | None:
 
 def _execute(ctx: click.Context, request: CommandRequest) -> None:
     runtime = _runtime(ctx)
-    if request.selected_profile is None and runtime.selected_profile is not None:
-        request = replace(request, selected_profile=runtime.selected_profile)
-    runtime.request = request
-    if request.group is CommandGroup.PROFILE:
-        profile_data: ProfileCommandData = asyncio.run(execute_profile_command(request, runtime.profile_service))
-        _write_success(profile_data, request)
-        return
-    if request.group in {CommandGroup.SERVER, CommandGroup.SCHEMA}:
-        inspection_service = runtime.inspection_service or InspectionService(runtime.profile_service)
-        runtime.inspection_service = inspection_service
-        inspection_data: InspectionCommandData = asyncio.run(inspection_service.execute(request))
-        _write_success(inspection_data, request)
-        return
-    if request.group is not CommandGroup.SQL:
-        raise ValueError("unsupported command group")
-    stdin_text = _read_stdin_if_needed(ctx, request)
-    loaded = load_inputs(request, stdin_text=stdin_text)
-    if request.selected_profile is not None:
-        sql_service = runtime.sql_service or SqlExecutionService(runtime.profile_service)
-        runtime.sql_service = sql_service
-        sql_data: SqlCommandData = asyncio.run(sql_service.execute(request, loaded))
-        _write_success(sql_data, request)
-        return
-    _write_success(_diagnose(request, loaded), request)
+    stdin_text = sys.stdin.read() if request_requires_stdin(request) else None
+    data: CommandData = execute_request(runtime, request, stdin_text=stdin_text)
+    resolved_request = runtime.request
+    if resolved_request is None:
+        raise RuntimeError("command runner did not retain the request")
+    _write_success(data, resolved_request)
 
 
 def _sql_request(
@@ -756,100 +681,8 @@ def _sql_spec(sql_text: str | None, sql_file: Path | None, *, label: str, allow_
     return SqlInputSpec.file(sql_file)
 
 
-def _read_stdin_if_needed(ctx: click.Context, request: CommandRequest) -> str | None:
-    needed = (
-        (request.sql_input is not None and request.sql_input.source is InputSource.STDIN)
-        or (request.compare_left_sql_input is not None and request.compare_left_sql_input.source is InputSource.STDIN)
-        or (request.compare_right_sql_input is not None and request.compare_right_sql_input.source is InputSource.STDIN)
-    )
-    return sys.stdin.read() if needed else None
-
-
-def _diagnose(request: CommandRequest, loaded: LoadedInputs) -> CommandDiagnosticData:
-    sql_diagnostic: SqlDiagnostic | None = None
-    if loaded.sql is not None:
-        try:
-            parsed = MySqlSqlParser().parse(loaded.sql)
-        except SqlParseError as exc:
-            raise _sql_failure(
-                code=ErrorCode.INVALID_SQL,
-                message=exc.message,
-                error_type=DiagnosticErrorType.SQL_PARSE,
-                request=request,
-            ) from exc
-        except UnsupportedSqlError as exc:
-            raise _sql_failure(
-                code=ErrorCode.UNSUPPORTED_SQL,
-                message=exc.message,
-                error_type=DiagnosticErrorType.POLICY_VIOLATION,
-                request=request,
-            ) from exc
-        _validate_policy_if_required(request.action, parsed, request=request)
-        sql_diagnostic = SqlDiagnostic(
-            source=request.sql_input.source if request.sql_input is not None else InputSource.INLINE,
-            statement_type=parsed.statement_type,
-            read_only=parsed.is_read_only,
-            write=parsed.is_write,
-            requires_explicit_transaction=parsed.requires_explicit_transaction,
-            explain_analyze=parsed.is_explain_analyze,
-            text_length=len(parsed.normalized_sql),
-        )
-    parameter_diagnostic = None
-    if loaded.parameters is not None:
-        parameter_diagnostic = ParameterDiagnostic(
-            source=InputSource.PARAMS_FILE,
-            kind=loaded.parameters.kind,
-            count=loaded.parameters.count,
-            path=loaded.parameters.source,
-        )
-    return CommandDiagnosticData(
-        status=DiagnosticStatus.PARSED,
-        command_group=request.group,
-        action=request.action,
-        sql=sql_diagnostic,
-        parameters=parameter_diagnostic,
-    )
-
-
-def _validate_policy_if_required(action: CommandAction, parsed: ParsedSql, *, request: CommandRequest) -> None:
-    if action is CommandAction.READ:
-        policy = ExecutionPolicy.READ_ONLY
-    elif action is CommandAction.WRITE:
-        policy = ExecutionPolicy.WRITE
-    elif action is CommandAction.EXPLAIN:
-        policy = ExecutionPolicy.EXPLAIN
-    else:
-        return
-    try:
-        validate_execution_policy(parsed, policy)
-    except ExecutionPolicyError as exc:
-        raise _sql_failure(
-            code=ErrorCode.UNSUPPORTED_SQL,
-            message=exc.message,
-            error_type=DiagnosticErrorType.POLICY_VIOLATION,
-            request=request,
-        ) from exc
-
-
-def _sql_failure(
-    *,
-    code: ErrorCode,
-    message: str,
-    error_type: DiagnosticErrorType,
-    request: CommandRequest | None,
-) -> CliFailure:
-    source = request.sql_input.source if request is not None and request.sql_input is not None else None
-    return CliFailure(
-        code=code,
-        message=message,
-        retryable=False,
-        details=(ErrorDetail(error_type=error_type, argument="--sql|--sql-file", source=source),),
-        exit_code=ExitCode.INVALID_ARGUMENT,
-    )
-
-
 def _write_success(
-    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SqlCommandData,
+    data: CommandData,
     request: CommandRequest,
 ) -> None:
     envelope = SuccessEnvelope(
@@ -956,15 +789,16 @@ def _internal_failure() -> CliFailure:
 
 def _profile_store_failure(error: ProfileStoreError) -> CliFailure:
     mapping = {
-        "profile_registry_corrupt": (ErrorCode.PROFILE_REGISTRY_CORRUPT, DiagnosticErrorType.PROFILE_REGISTRY_CORRUPT),
-        "profile_registry_version_unsupported": (
+        RegistryErrorCode.CORRUPT: (ErrorCode.PROFILE_REGISTRY_CORRUPT, DiagnosticErrorType.PROFILE_REGISTRY_CORRUPT),
+        RegistryErrorCode.UNSUPPORTED_VERSION: (
             ErrorCode.PROFILE_REGISTRY_VERSION,
             DiagnosticErrorType.PROFILE_REGISTRY_VERSION,
         ),
-        "profile_registry_locked": (ErrorCode.PROFILE_REGISTRY_LOCKED, DiagnosticErrorType.PROFILE_REGISTRY_LOCKED),
+        RegistryErrorCode.LOCKED: (ErrorCode.PROFILE_REGISTRY_LOCKED, DiagnosticErrorType.PROFILE_REGISTRY_LOCKED),
+        RegistryErrorCode.IO: (ErrorCode.INPUT_ERROR, DiagnosticErrorType.FILE_READ_ERROR),
     }
     code, error_type = mapping.get(
-        error.code.value,
+        error.code,
         (ErrorCode.INPUT_ERROR, DiagnosticErrorType.FILE_READ_ERROR),
     )
     exit_code = ExitCode.PROFILE_ERROR if code is not ErrorCode.INPUT_ERROR else ExitCode.INPUT_ERROR

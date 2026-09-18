@@ -1,7 +1,14 @@
 """Stable, presentation-neutral API for asynchronous MySQL execution."""
 
 from mysql_client.cancellation import CancellationToken
-from mysql_client.configuration import MySqlConnectionConfig, SecretValue
+from mysql_client.configuration import (
+    DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_MYSQL_CHARSET,
+    DEFAULT_MYSQL_PORT,
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    MySqlConnectionConfig,
+    SecretValue,
+)
 from mysql_client.driver_adapter import (
     AiomysqlDriverFactory,
     DriverColumn,
@@ -100,6 +107,10 @@ from mysql_client.value_models import (
 )
 
 __all__ = [
+    "DEFAULT_CONNECT_TIMEOUT_SECONDS",
+    "DEFAULT_MYSQL_CHARSET",
+    "DEFAULT_MYSQL_PORT",
+    "DEFAULT_READ_TIMEOUT_SECONDS",
     "AiomysqlDriverFactory",
     "AuthenticationError",
     "BenchmarkRequest",

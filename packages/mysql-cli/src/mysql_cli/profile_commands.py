@@ -36,7 +36,6 @@ async def execute_profile_command(request: CommandRequest, service: ProfileServi
                 settings=settings,
                 password=request.profile_password,
                 clear_password=request.profile_clear_password,
-                no_bind=request.profile_no_bind,
             )
         )
         return _with_profile(action, profile)

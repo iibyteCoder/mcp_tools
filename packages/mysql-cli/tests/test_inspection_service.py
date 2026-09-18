@@ -113,7 +113,6 @@ async def test_inspection_service_returns_deterministic_secret_free_output(tmp_p
             name=ProfileName(value="dev"),
             settings=ProfileSettingsPatch(host="db.example", user="alice"),
             password="do-not-output",
-            no_bind=True,
         )
     )
     cursor = InspectionCursor()

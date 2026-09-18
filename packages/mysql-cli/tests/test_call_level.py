@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-import mysql_cli.cli as cli_module
+import mysql_cli.command_runner as command_runner
 from mysql_cli.cli import main
 from mysql_cli.profile_store import JsonProfileStore
 
@@ -49,7 +49,7 @@ def test_profile_list_uses_cli_lock_wait_policy(
             observed["lock_timeout"] = lock_timeout
             super().__init__(path, lock_timeout=lock_timeout)
 
-    monkeypatch.setattr(cli_module, "JsonProfileStore", ObservedStore)
+    monkeypatch.setattr(command_runner, "JsonProfileStore", ObservedStore)
     assert main(["profile", "list"]) == 0
     capsys.readouterr()
 

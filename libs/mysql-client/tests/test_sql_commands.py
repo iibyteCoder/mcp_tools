@@ -212,6 +212,22 @@ async def test_compare_reports_differences_without_switching_target() -> None:
 
 
 @pytest.mark.asyncio
+async def test_compare_uses_policy_default_for_difference_sample_limit() -> None:
+    left_sql = "SELECT id FROM left_items"
+    right_sql = "SELECT id FROM right_items"
+    cursor = FakeCursor({left_sql: ((1,),), right_sql: ((2,),)})
+    policy = ExecutionPolicyDefaults(max_diff_samples=0)
+
+    async with MySqlSession(connection_config(), FakeFactory(FakeConnection(cursor)), policy=policy) as session:
+        result = await session.execute_compare(
+            CompareRequest(left_sql=SqlInput.inline(left_sql), right_sql=SqlInput.inline(right_sql))
+        )
+
+    assert result.equal is False
+    assert result.differences == ()
+
+
+@pytest.mark.asyncio
 async def test_parameter_bindings_are_passed_to_the_driver_unchanged() -> None:
     sql = "SELECT %s"
     parameters = ("bound", 7)

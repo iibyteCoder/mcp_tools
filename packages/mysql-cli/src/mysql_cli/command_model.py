@@ -218,6 +218,5 @@ class CommandRequest:
     profile_settings: ProfileSettingsPatch | None = None
     profile_password: str | None = field(default=None, repr=False)
     profile_clear_password: bool = False
-    profile_no_bind: bool = False
     schema_database: DatabaseName | None = None
     schema_table: TableName | None = None

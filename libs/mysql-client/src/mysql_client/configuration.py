@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+DEFAULT_MYSQL_PORT = 3306
+DEFAULT_MYSQL_CHARSET = "utf8mb4"
+DEFAULT_CONNECT_TIMEOUT_SECONDS = 10.0
+DEFAULT_READ_TIMEOUT_SECONDS = 30.0
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SecretValue:
@@ -34,11 +39,11 @@ class MySqlConnectionConfig:
     host: str
     user: str
     password: SecretValue
-    port: int = 3306
+    port: int = DEFAULT_MYSQL_PORT
     database: str | None = None
-    charset: str = "utf8mb4"
-    connect_timeout_seconds: float = 10.0
-    read_timeout_seconds: float = 30.0
+    charset: str = DEFAULT_MYSQL_CHARSET
+    connect_timeout_seconds: float = DEFAULT_CONNECT_TIMEOUT_SECONDS
+    read_timeout_seconds: float = DEFAULT_READ_TIMEOUT_SECONDS
 
     def __post_init__(self) -> None:
         if not self.host.strip():
