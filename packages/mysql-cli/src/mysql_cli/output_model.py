@@ -1,6 +1,6 @@
 """Compatibility imports for JSON output models."""
 
-from mysql_cli.presentation.output import (
+from mysql_cli.application.results import (
     BindingView,
     CommandDiagnosticData,
     DiagnosticMetadata,

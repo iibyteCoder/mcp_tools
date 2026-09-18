@@ -1,6 +1,6 @@
 """Compatibility imports for JSON presentation encoding."""
 
-from mysql_cli.presentation.json_codec import (
+from mysql_cli.shared.json_codec import (
     JsonArray,
     JsonDocumentError,
     JsonObject,

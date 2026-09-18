@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeAlias
 
+from mysql_cli.application.results import SqlCommandData
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
-from mysql_cli.presentation.output import SqlCommandData
 from mysql_client import (
     BenchmarkRequest,
     BenchmarkResult,
@@ -21,7 +21,6 @@ from mysql_client import (
     WriteRequest,
     WriteResult,
 )
-from mysql_client.adapters.aiomysql import AiomysqlDriverFactory
 
 if TYPE_CHECKING:
     from mysql_cli.application.input import LoadedInputs
@@ -35,9 +34,9 @@ SqlResult: TypeAlias = QueryResult | WriteResult | ExplainResult | BenchmarkResu
 class SqlExecutionService:
     """Resolve one selected profile and execute exactly one SQL operation."""
 
-    def __init__(self, profiles: ProfileService, driver_factory: DriverFactory | None = None) -> None:
+    def __init__(self, profiles: ProfileService, driver_factory: DriverFactory) -> None:
         self._profiles = profiles
-        self._driver_factory = driver_factory or AiomysqlDriverFactory()
+        self._driver_factory = driver_factory
 
     async def execute(self, request: CommandRequest, inputs: LoadedInputs) -> SqlCommandData:
         if request.group is not CommandGroup.SQL:

@@ -6,10 +6,17 @@ import asyncio
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
+from mysql_cli.application.errors import CliFailure, ErrorDetail
 from mysql_cli.application.input import LoadedInputs, load_inputs
-from mysql_cli.application.inspection import InspectionService
 from mysql_cli.application.profile_commands import execute_profile_command
-from mysql_cli.application.sql import SqlExecutionService
+from mysql_cli.application.results import (
+    CommandDiagnosticData,
+    InspectionCommandData,
+    ParameterDiagnostic,
+    ProfileCommandData,
+    SqlCommandData,
+    SqlDiagnostic,
+)
 from mysql_cli.domain.command import (
     CommandAction,
     CommandGroup,
@@ -19,15 +26,6 @@ from mysql_cli.domain.command import (
     ErrorCode,
     ExitCode,
     InputSource,
-)
-from mysql_cli.presentation.errors import CliFailure, ErrorDetail
-from mysql_cli.presentation.output import (
-    CommandDiagnosticData,
-    InspectionCommandData,
-    ParameterDiagnostic,
-    ProfileCommandData,
-    SqlCommandData,
-    SqlDiagnostic,
 )
 from mysql_client import (
     ExecutionPolicy,
@@ -73,10 +71,9 @@ class CliRuntime:
     def create_default(cls) -> CliRuntime:
         """Build the production composition without contacting a database."""
 
-        from mysql_cli.command_runner import JsonProfileStore, KeyringSecretStore
         from mysql_cli.composition import create_runtime
 
-        return create_runtime(profile_store_factory=JsonProfileStore, secret_store_factory=KeyringSecretStore)
+        return create_runtime()
 
 
 def request_requires_stdin(request: CommandRequest) -> bool:
@@ -95,17 +92,17 @@ def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text:
     if request.group is CommandGroup.PROFILE:
         return asyncio.run(execute_profile_command(request, runtime.profile_service))
     if request.group in {CommandGroup.SERVER, CommandGroup.SCHEMA}:
-        inspection_service = runtime.inspection_service or InspectionService(runtime.profile_service)
-        runtime.inspection_service = inspection_service
-        return asyncio.run(inspection_service.execute(request))
+        if runtime.inspection_service is None:
+            raise RuntimeError("inspection service is not configured")
+        return asyncio.run(runtime.inspection_service.execute(request))
     if request.group is not CommandGroup.SQL:
         raise ValueError("unsupported command group")
 
     loaded = load_inputs(request, stdin_text=stdin_text)
     if request.selected_profile is not None:
-        sql_service = runtime.sql_service or SqlExecutionService(runtime.profile_service)
-        runtime.sql_service = sql_service
-        return asyncio.run(sql_service.execute(request, loaded))
+        if runtime.sql_service is None:
+            raise RuntimeError("SQL service is not configured")
+        return asyncio.run(runtime.sql_service.execute(request, loaded))
     return diagnose(request, loaded)
 
 

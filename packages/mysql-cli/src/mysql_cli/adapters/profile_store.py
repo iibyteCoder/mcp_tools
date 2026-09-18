@@ -8,7 +8,7 @@ import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Protocol, cast
+from typing import TYPE_CHECKING, Final, cast
 
 from filelock import FileLock, Timeout
 from platformdirs import user_config_path
@@ -21,29 +21,11 @@ from mysql_cli.domain.profile import (
     ProfileSettings,
     RegistryErrorCode,
 )
-from mysql_cli.presentation.json_codec import JsonValue, is_json_object
+from mysql_cli.ports.profile_store import ProfileStore, ProfileStoreError
+from mysql_cli.shared.json_codec import JsonValue, is_json_object
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-
-
-class ProfileStoreError(RuntimeError):
-    """A stable, secret-free profile registry persistence error."""
-
-    def __init__(self, code: RegistryErrorCode, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-
-
-class ProfileStore(Protocol):
-    """Typed store contract used by ``ProfileService`` and test fakes."""
-
-    def read(self) -> ProfileRegistry: ...
-
-    def write(self, registry: ProfileRegistry) -> None: ...
-
-    def update(self, updater: Callable[[ProfileRegistry], ProfileRegistry]) -> ProfileRegistry: ...
 
 
 class JsonProfileStore:

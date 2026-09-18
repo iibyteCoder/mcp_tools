@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from mysql_cli.application.results import InspectionCommandData
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
-from mysql_cli.presentation.output import InspectionCommandData
 from mysql_client import (
-    AiomysqlDriverFactory,
-    DriverFactory,
     MySqlSession,
     SchemaDatabasesRequest,
     SchemaDescribeRequest,
@@ -23,14 +21,15 @@ from mysql_client import (
 if TYPE_CHECKING:
     from mysql_cli.application.profile import ProfileService
     from mysql_client.domain.requests import InspectionRequest
+    from mysql_client.ports.driver import DriverFactory
 
 
 class InspectionService:
     """Resolve one selected profile and execute one read-only inspection."""
 
-    def __init__(self, profiles: ProfileService, driver_factory: DriverFactory | None = None) -> None:
+    def __init__(self, profiles: ProfileService, driver_factory: DriverFactory) -> None:
         self._profiles = profiles
-        self._driver_factory = driver_factory or AiomysqlDriverFactory()
+        self._driver_factory = driver_factory
 
     async def execute(self, request: CommandRequest) -> InspectionCommandData:
         """Execute the requested inspection without changing profile or database state."""

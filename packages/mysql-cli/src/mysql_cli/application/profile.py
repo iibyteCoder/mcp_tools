@@ -7,7 +7,6 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
-from mysql_cli.adapters.secret_store import KeyringSecretStore, SecretStoreError
 from mysql_cli.domain.profile import (
     DirectoryBinding,
     ProfileName,
@@ -19,12 +18,12 @@ from mysql_cli.domain.profile import (
     ProfileSettings,
     normalize_directory,
 )
+from mysql_cli.ports.secret_store import SecretStoreError
 from mysql_client import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_MYSQL_CHARSET,
     DEFAULT_MYSQL_PORT,
     DEFAULT_READ_TIMEOUT_SECONDS,
-    AiomysqlDriverFactory,
     ClientError,
     MySqlConnectionConfig,
     MySqlSession,
@@ -32,8 +31,9 @@ from mysql_client import (
 )
 
 if TYPE_CHECKING:
-    from mysql_cli.adapters.profile_store import ProfileStore
-    from mysql_cli.adapters.secret_store import SecretStore
+    from mysql_cli.ports.profile_store import ProfileStore
+    from mysql_cli.ports.secret_store import SecretStore
+    from mysql_client.ports.driver import DriverFactory
 
 
 class ProfileServiceErrorCode(str, Enum):
@@ -65,8 +65,11 @@ class ProfileValidator(Protocol):
 class MySqlSessionValidator:
     """Validate a profile by opening and closing one real MySQL session."""
 
+    def __init__(self, driver_factory: DriverFactory) -> None:
+        self._driver_factory = driver_factory
+
     async def validate(self, config: MySqlConnectionConfig) -> None:
-        async with MySqlSession(config, AiomysqlDriverFactory()):
+        async with MySqlSession(config, self._driver_factory):
             return
 
 
@@ -76,14 +79,14 @@ class ProfileService:
     def __init__(
         self,
         store: ProfileStore,
-        secret_store: SecretStore | None = None,
+        secret_store: SecretStore,
         validator: ProfileValidator | None = None,
         *,
         working_directory: Path | None = None,
     ) -> None:
         self.store = store
-        self.secret_store = secret_store or KeyringSecretStore()
-        self.validator = validator or MySqlSessionValidator()
+        self.secret_store = secret_store
+        self.validator = validator
         self.working_directory = normalize_directory(working_directory or Path.cwd())
 
     def list_profiles(self) -> tuple[ProfileRecord, ...]:
@@ -276,6 +279,8 @@ class ProfileService:
     async def validate(self, name: ProfileName) -> ProfileRecord:
         profile = self.require(name)
         config = self.connection_config(profile)
+        if self.validator is None:
+            raise ProfileServiceError(ProfileServiceErrorCode.VALIDATION_FAILED, "profile validator is not configured")
         try:
             await self.validator.validate(config)
         except (ClientError, ProfileServiceError):

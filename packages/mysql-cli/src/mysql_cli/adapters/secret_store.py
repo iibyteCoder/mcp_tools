@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 import keyring
 from keyring.errors import PasswordDeleteError
@@ -11,19 +11,7 @@ from keyring.errors import PasswordDeleteError
 if TYPE_CHECKING:
     from mysql_cli.domain.profile import ProfileName
 
-
-class SecretStoreError(RuntimeError):
-    """A credential manager operation failed without exposing a secret."""
-
-
-class SecretStore(Protocol):
-    """Typed secret storage contract used by the profile service."""
-
-    def get(self, name: ProfileName) -> str | None: ...
-
-    def set(self, name: ProfileName, password: str) -> None: ...
-
-    def delete(self, name: ProfileName) -> None: ...
+from mysql_cli.ports.secret_store import SecretStore, SecretStoreError
 
 
 class KeyringSecretStore:

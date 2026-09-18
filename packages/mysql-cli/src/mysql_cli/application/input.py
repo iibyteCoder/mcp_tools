@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from mysql_cli.application.errors import CliFailure, ErrorDetail
 from mysql_cli.domain.command import (
     CommandRequest,
     DiagnosticErrorType,
@@ -14,8 +15,7 @@ from mysql_cli.domain.command import (
     ParameterKind,
     SqlInputSpec,
 )
-from mysql_cli.presentation.errors import CliFailure, ErrorDetail
-from mysql_cli.presentation.json_codec import (
+from mysql_cli.shared.json_codec import (
     JsonArray,
     JsonDocumentError,
     JsonObject,

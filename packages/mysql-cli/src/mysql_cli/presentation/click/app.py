@@ -10,8 +10,14 @@ from typing import TYPE_CHECKING, TypeVar
 import click
 
 from mysql_cli import __version__
-from mysql_cli.adapters.profile_store import ProfileStoreError
+from mysql_cli.application.errors import CliFailure, ErrorDetail
 from mysql_cli.application.profile import ProfileServiceError, ProfileServiceErrorCode
+from mysql_cli.application.results import (
+    DiagnosticMetadata,
+    ErrorBody,
+    ErrorEnvelope,
+    SuccessEnvelope,
+)
 from mysql_cli.application.runner import CliRuntime, CommandData, execute_request, request_requires_stdin
 from mysql_cli.domain.command import (
     CommandAction,
@@ -24,14 +30,8 @@ from mysql_cli.domain.command import (
     SqlInputSpec,
 )
 from mysql_cli.domain.profile import ProfileName, ProfileSettingsPatch, RegistryErrorCode
-from mysql_cli.presentation.errors import CliFailure, ErrorDetail
-from mysql_cli.presentation.json_codec import encode_json_document
-from mysql_cli.presentation.output import (
-    DiagnosticMetadata,
-    ErrorBody,
-    ErrorEnvelope,
-    SuccessEnvelope,
-)
+from mysql_cli.ports.profile_store import ProfileStoreError
+from mysql_cli.shared.json_codec import encode_json_document
 from mysql_client import (
     ClientError,
     DatabaseName,
