@@ -92,6 +92,28 @@ def test_policy_rejection_matrix(
     assert sql not in str(error.value)
 
 
+@pytest.mark.parametrize(
+    ("sql", "reason"),
+    [
+        ("SELECT * FROM items FOR UPDATE", "read_only_rejects_locking"),
+        ("SELECT * FROM items LOCK IN SHARE MODE", "read_only_rejects_locking"),
+        ("SELECT GET_LOCK('items', 1)", "read_only_rejects_side_effect"),
+        ("SELECT RELEASE_LOCK('items')", "read_only_rejects_side_effect"),
+        ("SELECT @item_count := COUNT(*) FROM items", "read_only_rejects_side_effect"),
+    ],
+)
+def test_read_only_policy_rejects_locking_and_side_effects(
+    parser: MySqlSqlParser,
+    validator: ExecutionPolicyValidator,
+    sql: str,
+    reason: str,
+) -> None:
+    with pytest.raises(ExecutionPolicyError) as error:
+        validator.validate(parser.parse(SqlText(sql)), ExecutionPolicy.READ_ONLY)
+
+    assert error.value.reason.value == reason
+
+
 def test_policy_does_not_rewrite_or_paginate_sql(
     parser: MySqlSqlParser,
     validator: ExecutionPolicyValidator,

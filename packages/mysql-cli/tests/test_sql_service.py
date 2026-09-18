@@ -139,6 +139,27 @@ async def test_sql_read_service_binds_params_and_emits_typed_json(tmp_path: Path
     assert connection.close_count == 1
 
 
+@pytest.mark.asyncio
+async def test_sql_write_rollback_preserves_outcome_in_json(tmp_path: Path) -> None:
+    request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.WRITE,
+        selected_profile=ProfileName(value="dev"),
+        sql_input=SqlInputSpec.inline("UPDATE items SET id = 1"),
+        sql_transaction=TransactionAction.ROLLBACK,
+    )
+    inputs = load_inputs(request, stdin_text=None)
+    cursor = SqlCursor()
+    connection = SqlConnection(cursor)
+
+    data = await SqlExecutionService(make_profiles(tmp_path), SqlFactory(connection)).execute(request, inputs)
+    document = encode_json_document(data)
+
+    assert connection.commit_count == 0
+    assert connection.rollback_count == 1
+    assert '"outcome":"rolled_back"' in document
+
+
 def test_sql_routes_define_explicit_execution_parameters() -> None:
     write_request = CommandRequest(
         group=CommandGroup.SQL,

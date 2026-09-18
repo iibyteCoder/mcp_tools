@@ -211,6 +211,67 @@ def test_unknown_command_does_not_use_dynamic_fallback(cli_environment: dict[str
     assert error["code"] == "unknown_command"
 
 
+def test_benchmark_rejects_write_during_local_diagnostics(cli_environment: dict[str, str]) -> None:
+    result = run_cli(cli_environment, "sql", "benchmark", "--sql", "UPDATE items SET id = 1")
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 2
+    assert result.stderr == ""
+    error = as_object(payload["error"])
+    assert error["code"] == "unsupported_sql"
+
+
+@pytest.mark.parametrize(
+    ("command", "sql"),
+    [
+        ("read", "SELECT * FROM items FOR UPDATE"),
+        ("benchmark", "SELECT GET_LOCK('items', 1)"),
+    ],
+)
+def test_read_only_commands_reject_locking_side_effects(
+    cli_environment: dict[str, str], command: str, sql: str
+) -> None:
+    result = run_cli(cli_environment, "sql", command, "--sql", sql)
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 2
+    assert result.stderr == ""
+    error = as_object(payload["error"])
+    assert error["code"] == "unsupported_sql"
+
+
+@pytest.mark.parametrize(
+    ("left_sql", "right_sql", "expected_code"),
+    [
+        ("UPDATE items SET id = 1", "SELECT 1", "unsupported_sql"),
+        ("SELECT 1", "DELETE FROM items", "unsupported_sql"),
+        ("SELECT (", "SELECT 1", "invalid_sql"),
+        ("SELECT 1", "SELECT (", "invalid_sql"),
+    ],
+)
+def test_compare_validates_both_sql_inputs_during_local_diagnostics(
+    cli_environment: dict[str, str],
+    left_sql: str,
+    right_sql: str,
+    expected_code: str,
+) -> None:
+    result = run_cli(
+        cli_environment,
+        "sql",
+        "compare",
+        "--left-sql",
+        left_sql,
+        "--right-sql",
+        right_sql,
+    )
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 2
+    assert result.stderr == ""
+    error = as_object(payload["error"])
+    assert error["code"] == expected_code
+
+
 def test_missing_file_is_typed(cli_environment: dict[str, str], tmp_path: Path) -> None:
     result = run_cli(cli_environment, "sql", "read", "--sql-file", str(tmp_path / "missing.sql"))
 

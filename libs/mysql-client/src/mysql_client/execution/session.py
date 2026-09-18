@@ -488,6 +488,7 @@ class MySqlSession:
                         started_at=result.metadata.started_at,
                     ),
                     generated_values=result.generated_values,
+                    outcome=result.outcome,
                 ),
             )
         return result

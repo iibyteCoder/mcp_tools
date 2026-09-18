@@ -26,12 +26,14 @@ from mysql_cli.domain.command import (
     ErrorCode,
     ExitCode,
     InputSource,
+    SqlInputSpec,
 )
 from mysql_client import (
     ExecutionPolicy,
     ExecutionPolicyError,
     MySqlSqlParser,
     ParsedSql,
+    SqlInput,
     SqlParseError,
     UnsupportedSqlError,
     validate_execution_policy,
@@ -99,35 +101,27 @@ def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin_text:
         raise ValueError("unsupported command group")
 
     loaded = load_inputs(request, stdin_text=stdin_text)
+    diagnostic = diagnose(request, loaded)
     if request.selected_profile is not None:
         if runtime.sql_service is None:
             raise RuntimeError("SQL service is not configured")
         return asyncio.run(runtime.sql_service.execute(request, loaded))
-    return diagnose(request, loaded)
+    return diagnostic
 
 
 def diagnose(request: CommandRequest, loaded: LoadedInputs) -> CommandDiagnosticData:
     """Parse and classify SQL without selecting or contacting a database."""
 
     sql_diagnostic: SqlDiagnostic | None = None
-    if loaded.sql is not None:
-        try:
-            parsed = MySqlSqlParser().parse(loaded.sql)
-        except SqlParseError as exc:
-            raise _sql_failure(
-                code=ErrorCode.INVALID_SQL,
-                message=exc.message,
-                error_type=DiagnosticErrorType.SQL_PARSE,
-                request=request,
-            ) from exc
-        except UnsupportedSqlError as exc:
-            raise _sql_failure(
-                code=ErrorCode.UNSUPPORTED_SQL,
-                message=exc.message,
-                error_type=DiagnosticErrorType.POLICY_VIOLATION,
-                request=request,
-            ) from exc
-        _validate_policy_if_required(request.action, parsed, request=request)
+    if request.action is CommandAction.COMPARE:
+        _validate_compare_inputs(request, loaded)
+    elif loaded.sql is not None:
+        parsed = _parse_and_validate_sql(
+            loaded.sql,
+            policy=_policy_for_action(request.action),
+            input_spec=request.sql_input,
+            argument="--sql|--sql-file",
+        )
         sql_diagnostic = SqlDiagnostic(
             source=request.sql_input.source if request.sql_input is not None else InputSource.INLINE,
             statement_type=parsed.statement_type,
@@ -154,15 +148,66 @@ def diagnose(request: CommandRequest, loaded: LoadedInputs) -> CommandDiagnostic
     )
 
 
-def _validate_policy_if_required(action: CommandAction, parsed: ParsedSql, *, request: CommandRequest) -> None:
-    if action is CommandAction.READ:
-        policy = ExecutionPolicy.READ_ONLY
-    elif action is CommandAction.WRITE:
-        policy = ExecutionPolicy.WRITE
-    elif action is CommandAction.EXPLAIN:
-        policy = ExecutionPolicy.EXPLAIN
-    else:
-        return
+def _policy_for_action(action: CommandAction) -> ExecutionPolicy | None:
+    if action in {CommandAction.READ, CommandAction.BENCHMARK}:
+        return ExecutionPolicy.READ_ONLY
+    if action is CommandAction.WRITE:
+        return ExecutionPolicy.WRITE
+    if action is CommandAction.EXPLAIN:
+        return ExecutionPolicy.EXPLAIN
+    return None
+
+
+def _validate_compare_inputs(request: CommandRequest, loaded: LoadedInputs) -> None:
+    if loaded.compare_left_sql is None or loaded.compare_right_sql is None:
+        raise _sql_failure(
+            code=ErrorCode.INVALID_ARGUMENT,
+            message="compare 必须提供左右两条 SQL",
+            error_type=DiagnosticErrorType.MISSING_SQL,
+            input_spec=None,
+            argument="--left-sql|--left-sql-file|--right-sql|--right-sql-file",
+        )
+    _parse_and_validate_sql(
+        loaded.compare_left_sql,
+        policy=ExecutionPolicy.READ_ONLY,
+        input_spec=request.compare_left_sql_input,
+        argument="--left-sql|--left-sql-file",
+    )
+    _parse_and_validate_sql(
+        loaded.compare_right_sql,
+        policy=ExecutionPolicy.READ_ONLY,
+        input_spec=request.compare_right_sql_input,
+        argument="--right-sql|--right-sql-file",
+    )
+
+
+def _parse_and_validate_sql(
+    sql: SqlInput,
+    *,
+    policy: ExecutionPolicy | None,
+    input_spec: SqlInputSpec | None,
+    argument: str,
+) -> ParsedSql:
+    try:
+        parsed = MySqlSqlParser().parse(sql)
+    except SqlParseError as exc:
+        raise _sql_failure(
+            code=ErrorCode.INVALID_SQL,
+            message=exc.message,
+            error_type=DiagnosticErrorType.SQL_PARSE,
+            input_spec=input_spec,
+            argument=argument,
+        ) from exc
+    except UnsupportedSqlError as exc:
+        raise _sql_failure(
+            code=ErrorCode.UNSUPPORTED_SQL,
+            message=exc.message,
+            error_type=DiagnosticErrorType.POLICY_VIOLATION,
+            input_spec=input_spec,
+            argument=argument,
+        ) from exc
+    if policy is None:
+        return parsed
     try:
         validate_execution_policy(parsed, policy)
     except ExecutionPolicyError as exc:
@@ -170,8 +215,10 @@ def _validate_policy_if_required(action: CommandAction, parsed: ParsedSql, *, re
             code=ErrorCode.UNSUPPORTED_SQL,
             message=exc.message,
             error_type=DiagnosticErrorType.POLICY_VIOLATION,
-            request=request,
+            input_spec=input_spec,
+            argument=argument,
         ) from exc
+    return parsed
 
 
 def _sql_failure(
@@ -179,14 +226,15 @@ def _sql_failure(
     code: ErrorCode,
     message: str,
     error_type: DiagnosticErrorType,
-    request: CommandRequest | None,
+    input_spec: SqlInputSpec | None,
+    argument: str,
 ) -> CliFailure:
-    source = request.sql_input.source if request is not None and request.sql_input is not None else None
+    source = input_spec.source if input_spec is not None else None
     return CliFailure(
         code=code,
         message=message,
         retryable=False,
-        details=(ErrorDetail(error_type=error_type, argument="--sql|--sql-file", source=source),),
+        details=(ErrorDetail(error_type=error_type, argument=argument, source=source),),
         exit_code=ExitCode.INVALID_ARGUMENT,
     )
 

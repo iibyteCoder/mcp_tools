@@ -174,6 +174,7 @@ async def test_write_transaction_decision_commits_or_rolls_back() -> None:
         )
     assert committed.affected_rows == 2
     assert committed.generated_values == (19,)
+    assert committed.outcome is WriteOutcome.COMMITTED
     assert commit_connection.begin_count == 1
     assert commit_connection.commit_count == 1
     assert commit_connection.rollback_count == 0
@@ -186,8 +187,9 @@ async def test_write_transaction_decision_commits_or_rolls_back() -> None:
                 statement_type=SqlStatementType.UPDATE,
                 transaction=TransactionAction.ROLLBACK,
             )
-        )
+    )
     assert rolled_back.affected_rows == 1
+    assert rolled_back.outcome is WriteOutcome.ROLLED_BACK
     assert rollback_connection.commit_count == 0
     assert rollback_connection.rollback_count == 1
 

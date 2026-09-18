@@ -9,7 +9,7 @@ from sqlglot import Expression, exp, parse
 from sqlglot.errors import ErrorLevel, SqlglotError
 from sqlglot.tokens import Token, Tokenizer, TokenType
 
-from mysql_client.domain.enums import SqlParseReason, SqlStatementType
+from mysql_client.domain.enums import SqlParseReason, SqlReadEffect, SqlSideEffectFunction, SqlStatementType
 from mysql_client.domain.errors import SqlParseError, UnsupportedSqlError
 from mysql_client.domain.requests import ParsedSql, SqlInput
 from mysql_client.domain.values import SqlText
@@ -74,6 +74,7 @@ class MySqlSqlParser:
             is_write=is_write,
             requires_explicit_transaction=is_write,
             is_explain_analyze=self._is_explain_analyze(expression, statement_type),
+            read_effect=self._read_effect(expression, statement_type),
         )
 
     @staticmethod
@@ -180,3 +181,23 @@ class MySqlSqlParser:
         if statement_type is not SqlStatementType.EXPLAIN:
             return False
         return str(expression.args.get("style", "")).upper() == "ANALYZE"
+
+    @staticmethod
+    def _read_effect(expression: Expression, statement_type: SqlStatementType) -> SqlReadEffect:
+        if statement_type not in {
+            SqlStatementType.SELECT,
+            SqlStatementType.SHOW,
+            SqlStatementType.DESCRIBE,
+        }:
+            return SqlReadEffect.NONE
+        if expression.find(exp.Lock) is not None:
+            return SqlReadEffect.LOCKING
+        if expression.find(exp.PropertyEQ) is not None:
+            return SqlReadEffect.SIDE_EFFECT
+        for function in expression.find_all(exp.Anonymous):
+            try:
+                SqlSideEffectFunction(function.name.upper())
+            except ValueError:
+                continue
+            return SqlReadEffect.SIDE_EFFECT
+        return SqlReadEffect.NONE

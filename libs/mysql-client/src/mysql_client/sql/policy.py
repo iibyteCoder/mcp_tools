@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from mysql_client.domain.enums import (
     ExecutionPolicy,
     PolicyViolationReason,
+    SqlReadEffect,
     SqlStatementType,
 )
 from mysql_client.domain.errors import ExecutionPolicyError
@@ -39,13 +40,18 @@ class ExecutionPolicyValidator:
         """Raise when ``parsed_sql`` cannot be executed under ``policy``."""
 
         allowed_statements = self._allowed_statements(policy)
-        if parsed_sql.statement_type in allowed_statements:
-            return
-        raise ExecutionPolicyError(
-            policy,
-            self._violation_reason(policy),
-            hint=self._hint(policy),
-        )
+        if parsed_sql.statement_type not in allowed_statements:
+            raise ExecutionPolicyError(
+                policy,
+                self._violation_reason(policy),
+                hint=self._hint(policy),
+            )
+        if policy is ExecutionPolicy.READ_ONLY and parsed_sql.read_effect is not SqlReadEffect.NONE:
+            raise ExecutionPolicyError(
+                policy,
+                self._read_effect_violation(parsed_sql.read_effect),
+                hint="只读策略拒绝锁定读取和会改变会话状态的表达式",
+            )
 
     @staticmethod
     def _allowed_statements(policy: ExecutionPolicy) -> frozenset[SqlStatementType]:
@@ -62,6 +68,12 @@ class ExecutionPolicyValidator:
         if policy is ExecutionPolicy.WRITE:
             return PolicyViolationReason.WRITE_REQUIRES_WRITE_STATEMENT
         return PolicyViolationReason.EXPLAIN_REQUIRES_EXPLAIN_STATEMENT
+
+    @staticmethod
+    def _read_effect_violation(effect: SqlReadEffect) -> PolicyViolationReason:
+        if effect is SqlReadEffect.LOCKING:
+            return PolicyViolationReason.READ_ONLY_REJECTS_LOCKING
+        return PolicyViolationReason.READ_ONLY_REJECTS_SIDE_EFFECT
 
     @staticmethod
     def _hint(policy: ExecutionPolicy) -> str:

@@ -25,10 +25,28 @@ class ExecutionPolicy(str, Enum):
     EXPLAIN = "explain"
 
 
+class SqlReadEffect(str, Enum):
+    """Observable effects that make a syntactic read unsafe for read-only policy."""
+
+    NONE = "none"
+    LOCKING = "locking"
+    SIDE_EFFECT = "side_effect"
+
+
+class SqlSideEffectFunction(str, Enum):
+    """MySQL functions that mutate named-lock state when used from a read statement."""
+
+    GET_LOCK = "GET_LOCK"
+    RELEASE_LOCK = "RELEASE_LOCK"
+    RELEASE_ALL_LOCKS = "RELEASE_ALL_LOCKS"
+
+
 class PolicyViolationReason(str, Enum):
     """Stable reasons for rejecting a parsed statement under a policy."""
 
     READ_ONLY_REQUIRES_READ_STATEMENT = "read_only_requires_read_statement"
+    READ_ONLY_REJECTS_LOCKING = "read_only_rejects_locking"
+    READ_ONLY_REJECTS_SIDE_EFFECT = "read_only_rejects_side_effect"
     WRITE_REQUIRES_WRITE_STATEMENT = "write_requires_write_statement"
     EXPLAIN_REQUIRES_EXPLAIN_STATEMENT = "explain_requires_explain_statement"
 

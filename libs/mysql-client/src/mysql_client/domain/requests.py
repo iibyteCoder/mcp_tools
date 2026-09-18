@@ -5,7 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeAlias
 
-from mysql_client.domain.enums import ExplainFormat, InputSource, InspectionCommand, SqlStatementType, TransactionAction
+from mysql_client.domain.enums import (
+    ExplainFormat,
+    InputSource,
+    InspectionCommand,
+    SqlReadEffect,
+    SqlStatementType,
+    TransactionAction,
+)
 from mysql_client.domain.values import DatabaseName, DatabaseParameters, SqlText, TableName
 
 if TYPE_CHECKING:
@@ -47,6 +54,7 @@ class ParsedSql:
     is_write: bool
     requires_explicit_transaction: bool
     is_explain_analyze: bool = False
+    read_effect: SqlReadEffect = SqlReadEffect.NONE
 
     def __post_init__(self) -> None:
         if not self.original_sql.strip():
@@ -59,6 +67,8 @@ class ParsedSql:
             raise ValueError("ParsedSql 必须明确表示只读或写入语句")
         if self.is_explain_analyze and self.statement_type is not SqlStatementType.EXPLAIN:
             raise ValueError("只有 EXPLAIN 语句可以标记为 ANALYZE")
+        if not self.is_read_only and self.read_effect is not SqlReadEffect.NONE:
+            raise ValueError("只有读取语句可以携带读取副作用分类")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

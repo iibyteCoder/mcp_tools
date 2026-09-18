@@ -122,3 +122,42 @@ def test_sql_click_boundary_builds_typed_request() -> None:
     assert request.selected_profile == ProfileName(value="dev")
     assert request.sql_transaction is TransactionAction.ROLLBACK
     assert request.sql_timeout_seconds == 2.0
+
+
+def test_selected_benchmark_is_validated_before_execution() -> None:
+    service = FakeSqlService()
+    runtime = CliRuntime(profile_service=cast("ProfileService", object()), sql_service=service)
+
+    result = CliRunner().invoke(
+        cli,
+        ["--profile", "dev", "sql", "benchmark", "--sql", "UPDATE items SET id = 1"],
+        obj=runtime,
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "unsupported_sql"
+    assert service.requests == []
+
+
+def test_selected_compare_validates_both_inputs_before_execution() -> None:
+    service = FakeSqlService()
+    runtime = CliRuntime(profile_service=cast("ProfileService", object()), sql_service=service)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "--profile",
+            "dev",
+            "sql",
+            "compare",
+            "--left-sql",
+            "SELECT 1",
+            "--right-sql",
+            "UPDATE items SET id = 1",
+        ],
+        obj=runtime,
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "unsupported_sql"
+    assert service.requests == []
