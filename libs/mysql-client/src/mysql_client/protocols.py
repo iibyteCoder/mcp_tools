@@ -23,12 +23,13 @@ if TYPE_CHECKING:
         QueryResult,
         WriteResult,
     )
+    from mysql_client.value_models import SqlText
 
 
 class SqlParser(Protocol):
     """Parse SQL without depending on a driver or CLI framework."""
 
-    def parse(self, sql: SqlInput) -> ParsedSql:
+    def parse(self, sql: SqlInput | SqlText) -> ParsedSql:
         """Return the normalized SQL and its statement family."""
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeAlias
 
 from mysql_client.enums import ExplainFormat, InputSource, SqlStatementType, TransactionAction
@@ -21,8 +21,7 @@ class SqlInput:
     name: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.text.strip():
-            raise ValueError("SQL 输入不能为空")
+        return None
 
     @classmethod
     def inline(cls, text: str) -> SqlInput:
@@ -41,8 +40,25 @@ class SqlInput:
 class ParsedSql:
     """Parser output used by the execution layer."""
 
-    text: SqlText
+    original_sql: SqlText = field(repr=False)
+    normalized_sql: SqlText = field(repr=False)
     statement_type: SqlStatementType
+    is_read_only: bool
+    is_write: bool
+    requires_explicit_transaction: bool
+    is_explain_analyze: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.original_sql.strip():
+            raise ValueError("原始 SQL 不能为空")
+        if not self.normalized_sql.strip():
+            raise ValueError("规范化 SQL 不能为空")
+        if self.statement_type is SqlStatementType.UNKNOWN:
+            raise ValueError("ParsedSql 不能使用 UNKNOWN 语句类型")
+        if self.is_read_only == self.is_write:
+            raise ValueError("ParsedSql 必须明确表示只读或写入语句")
+        if self.is_explain_analyze and self.statement_type is not SqlStatementType.EXPLAIN:
+            raise ValueError("只有 EXPLAIN 语句可以标记为 ANALYZE")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

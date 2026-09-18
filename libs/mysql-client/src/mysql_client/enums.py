@@ -17,6 +17,30 @@ class SqlStatementType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ExecutionPolicy(str, Enum):
+    """The only execution intents accepted by the client boundary."""
+
+    READ_ONLY = "read_only"
+    WRITE = "write"
+    EXPLAIN = "explain"
+
+
+class PolicyViolationReason(str, Enum):
+    """Stable reasons for rejecting a parsed statement under a policy."""
+
+    READ_ONLY_REQUIRES_READ_STATEMENT = "read_only_requires_read_statement"
+    WRITE_REQUIRES_WRITE_STATEMENT = "write_requires_write_statement"
+    EXPLAIN_REQUIRES_EXPLAIN_STATEMENT = "explain_requires_explain_statement"
+
+
+class SqlParseReason(str, Enum):
+    """Stable reasons for rejecting SQL before execution."""
+
+    EMPTY = "empty"
+    MULTIPLE_STATEMENTS = "multiple_statements"
+    SYNTAX_ERROR = "syntax_error"
+
+
 class ErrorCode(str, Enum):
     """Stable machine-readable error classifications."""
 

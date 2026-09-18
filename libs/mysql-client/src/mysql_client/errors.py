@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from mysql_client.enums import ErrorCode
+from mysql_client.enums import (
+    ErrorCode,
+    ExecutionPolicy,
+    PolicyViolationReason,
+    SqlParseReason,
+)
 from mysql_client.result_models import ErrorReport
 
 
@@ -36,11 +41,36 @@ class SqlParseError(ClientError):
 
     code: ClassVar[ErrorCode] = ErrorCode.INVALID_SQL
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: SqlParseReason = SqlParseReason.SYNTAX_ERROR,
+        hint: str | None = None,
+    ) -> None:
+        self.reason = reason
+        super().__init__(message, hint=hint)
+
 
 class UnsupportedSqlError(ClientError):
     """The statement is valid but outside the supported command policy."""
 
     code: ClassVar[ErrorCode] = ErrorCode.UNSUPPORTED_SQL
+
+
+class ExecutionPolicyError(UnsupportedSqlError):
+    """A parsed statement does not match the caller's execution intent."""
+
+    def __init__(
+        self,
+        policy: ExecutionPolicy,
+        reason: PolicyViolationReason,
+        *,
+        hint: str | None = None,
+    ) -> None:
+        self.policy = policy
+        self.reason = reason
+        super().__init__("SQL 语句不符合执行策略", hint=hint)
 
 
 class ConnectionError(ClientError):

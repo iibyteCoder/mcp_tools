@@ -14,8 +14,11 @@ from mysql_client.enums import (
     CancellationReason,
     Capability,
     ErrorCode,
+    ExecutionPolicy,
     ExplainFormat,
     InputSource,
+    PolicyViolationReason,
+    SqlParseReason,
     SqlStatementType,
     TransactionAction,
 )
@@ -26,6 +29,7 @@ from mysql_client.errors import (
     ConfigurationError,
     ConnectionError,
     DatabaseNotFoundError,
+    ExecutionPolicyError,
     InternalError,
     InvalidArgumentError,
     QueryCancelledError,
@@ -35,6 +39,8 @@ from mysql_client.errors import (
     UnsupportedSqlError,
     error_report_from_exception,
 )
+from mysql_client.parser import MySqlSqlParser
+from mysql_client.policy import ExecutionPolicyValidator, validate_execution_policy
 from mysql_client.protocols import CancellationController, QuerySession, SqlParser
 from mysql_client.request_models import (
     BenchmarkRequest,
@@ -101,7 +107,10 @@ __all__ = [
     "ErrorCode",
     "ErrorReport",
     "ExecutionMetadata",
+    "ExecutionPolicy",
     "ExecutionPolicyDefaults",
+    "ExecutionPolicyError",
+    "ExecutionPolicyValidator",
     "ExplainFormat",
     "ExplainRequest",
     "ExplainResult",
@@ -113,7 +122,9 @@ __all__ = [
     "Milliseconds",
     "MySqlConnectionConfig",
     "MySqlSession",
+    "MySqlSqlParser",
     "ParsedSql",
+    "PolicyViolationReason",
     "ProfileName",
     "QueryCancelledError",
     "QueryExecutionError",
@@ -129,6 +140,7 @@ __all__ = [
     "SessionState",
     "SqlInput",
     "SqlParseError",
+    "SqlParseReason",
     "SqlParser",
     "SqlStatementType",
     "SqlText",
@@ -138,4 +150,5 @@ __all__ = [
     "WriteRequest",
     "WriteResult",
     "error_report_from_exception",
+    "validate_execution_policy",
 ]
