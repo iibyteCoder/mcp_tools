@@ -22,6 +22,8 @@ uv run --project packages/redis-cli db-redis --profile local --json server ping
 - `server`: ping/info/dbsize/flushdb/pipeline
 - `key`: inspect/scan/keys/delete/exists/type/ttl/expire/persist/rename/random
 - `string`, `hash`, `list`, `set`, `zset`: 常用 Redis 数据类型操作
+- `skill path`: 输出项目 Skill 文档路径
+- `use NAME`: 为当前目录选择一个已保存 profile
 
 破坏性操作必须显式确认，例如 `server flushdb --confirm`。
 
