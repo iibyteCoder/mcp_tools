@@ -35,3 +35,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["e2e: tests that exercise the CLI against a real Redis service"]

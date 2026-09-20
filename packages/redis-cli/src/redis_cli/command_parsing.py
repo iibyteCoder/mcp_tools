@@ -24,7 +24,10 @@ def mapping_arguments(value: str, *, numeric: bool) -> tuple[str, ...]:
             raise CliError(ErrorCode.INVALID_ARGUMENT, "mapping values must be strings or numbers")
         if numeric and not isinstance(item, (int, float)):
             raise CliError(ErrorCode.INVALID_ARGUMENT, "sorted-set scores must be numbers")
-        arguments.extend((key, str(item)))
+        if numeric:
+            arguments.extend((str(item), key))
+        else:
+            arguments.extend((key, str(item)))
     return tuple(arguments)
 
 
