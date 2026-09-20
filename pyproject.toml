@@ -5,7 +5,7 @@ description = "MySQL CLI workspace"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]
-members = ["libs/mysql-client", "packages/mysql-cli"]
+members = ["libs/mysql-client", "packages/mysql-cli", "packages/redis-cli"]
 
 [dependency-groups]
 dev = [

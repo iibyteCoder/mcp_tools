@@ -1,0 +1,35 @@
+"""Named constants shared by the Redis CLI layers."""
+
+from typing import Final
+
+DEFAULT_REDIS_HOST: Final[str] = "localhost"
+DEFAULT_REDIS_PORT: Final[int] = 6379
+DEFAULT_REDIS_DATABASE: Final[int] = 0
+DEFAULT_CONNECTION_TIMEOUT_SECONDS: Final[float] = 5.0
+MAX_REDIS_PORT: Final[int] = 65_535
+MAX_PROFILE_NAME_LENGTH: Final[int] = 64
+PROFILE_REGISTRY_VERSION: Final[int] = 1
+PROFILE_REGISTRY_FILE_NAME: Final[str] = "connections.json"
+PROFILE_REGISTRY_DIRECTORY: Final[str] = "db-cli"
+PASSWORD_SERVICE_NAME: Final[str] = "db-redis"
+REDIS_CLI_SKILL_PATH: Final[str] = "skills/redis-cli/SKILL.md"
+DEFAULT_PREVIEW_BYTE_LIMIT: Final[int] = 256
+DEFAULT_SCAN_LIMIT: Final[int] = 20
+MAX_SCAN_LIMIT: Final[int] = 10_000
+
+__all__ = [
+    "DEFAULT_CONNECTION_TIMEOUT_SECONDS",
+    "DEFAULT_PREVIEW_BYTE_LIMIT",
+    "DEFAULT_REDIS_DATABASE",
+    "DEFAULT_REDIS_HOST",
+    "DEFAULT_REDIS_PORT",
+    "DEFAULT_SCAN_LIMIT",
+    "MAX_PROFILE_NAME_LENGTH",
+    "MAX_REDIS_PORT",
+    "MAX_SCAN_LIMIT",
+    "PASSWORD_SERVICE_NAME",
+    "PROFILE_REGISTRY_DIRECTORY",
+    "PROFILE_REGISTRY_FILE_NAME",
+    "PROFILE_REGISTRY_VERSION",
+    "REDIS_CLI_SKILL_PATH",
+]

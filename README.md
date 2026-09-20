@@ -1,4 +1,4 @@
-# MySQL CLI
+# Database CLI workspace
 
 基于 Python 3.10+ 和 uv 构建的 MySQL 客户端与 JSON 命令行工具。
 
@@ -8,7 +8,9 @@
 ./
 ├── libs/mysql-client/       # 类型化 MySQL 执行基础库
 ├── packages/mysql-cli/       # db-mysql 命令行工具
-├── skills/mysql-cli/        # CLI 使用契约与连接参考
+├── packages/redis-cli/      # db-redis 命令行工具
+├── skills/mysql-cli/         # MySQL CLI 使用契约
+├── skills/redis-cli/         # Redis CLI 使用契约
 ├── Claude.md                # 开发指南
 └── pyproject.toml           # 工作区配置
 ```
@@ -19,6 +21,7 @@
 | ---- | ---- |
 | [mysql-client](libs/mysql-client/pyproject.toml) | 类型化异步 MySQL 执行基础库 |
 | [mysql-cli](packages/mysql-cli/pyproject.toml) | JSON-only `db-mysql` 命令行工具 |
+| [redis-cli](packages/redis-cli/pyproject.toml) | JSON-first `db-redis` 命令行工具 |
 
 ## 快速开始
 
@@ -35,12 +38,16 @@ uv sync
 
 # 安装 db-mysql
 uv tool install packages/mysql-cli
+
+# 安装 db-redis
+uv tool install packages/redis-cli
 ```
 
 安装后可使用：
 
 ```bash
 db-mysql --json profile list
+db-redis --json profile list
 ```
 
 ### 开发模式
@@ -56,7 +63,7 @@ uv run --project packages/mysql-cli pytest
 uv run --project libs/mysql-client pytest
 ```
 
-CLI 命令和参数约定请参考 [mysql-cli skill](skills/mysql-cli/SKILL.md)。
+CLI 命令和参数约定请参考 [mysql-cli skill](skills/mysql-cli/SKILL.md) 与 [redis-cli skill](skills/redis-cli/SKILL.md)。
 
 开发指南和最佳实践请参考 [Claude.md](Claude.md)。
 
