@@ -46,7 +46,7 @@ keyring service `db-dm`.
 
 Without `--profile`, a directory binding is used. If none exists, SQL commands
 perform local parse/input diagnostics only; `server` and `schema` commands report
-`profile_not_found`. Do not infer a target from a failed selection.
+`profile_not_found`. Use only the selected target; report a failed selection.
 
 ## Schema validation
 
@@ -64,20 +64,17 @@ seconds for the execution timeout, so positive fractions are rounded up.
 
 ## Actual plans and `disql`
 
-`sql explain --actual` executes read-only SQL through the `disql` client with
-`SET AUTOTRACE TRACEONLY`; the default `sql explain` path is unaffected and
-still uses dmPython `Connection.explain`.
+`sql explain --actual` semantics are documented in `SKILL.md`; this section
+covers the client setup.
 
 - Set `DB_DM_DISQL_PATH` to the `disql` executable. If unset, `disql` is looked
   up on `PATH`; a missing executable returns `configuration_failed`.
 - Credentials are written to the `disql` process on standard input, never in
   process arguments or output.
-- Only SELECT/WITH is accepted; write, locking, session-state and
-  `EXPLAIN ANALYZE` statements return `unsupported_sql` before `disql` starts.
-- `plan_text` is the estimated plan; `statistics` are actual aggregates. There is
-  no per-operator time or loop count.
 - `--timeout` wins over a positive profile `query_timeout`; otherwise the
   `disql` runner default of 60 seconds applies.
+- `plan_text` is the estimated plan; `statistics` are actual aggregates. Read
+  `SKILL.md` for the `--actual` result shape and read-only rules.
 
 ## Local `dm_local` setup
 
@@ -112,5 +109,5 @@ db-dm --json --profile lot-01-actual sql explain --actual `
 - Test tables use the `DB_DM_CLI_TEST_` prefix and are dropped in `finally`.
 - No additional Docker image or database/schema is required.
 
-Never write passwords, keyring values, or rendered connection strings into the
-repository, profile JSON, logs, or command output.
+Keep passwords, keyring values, and rendered connection strings out of the
+repository, profile JSON, logs, and command output.

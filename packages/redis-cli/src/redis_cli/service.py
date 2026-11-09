@@ -8,17 +8,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlparse
 
+from db_cli_kit.profiles import DirectoryBinding, ProfileName, normalize_directory
+from db_cli_kit.secrets import SecretStore, SecretStoreError
 from redis_cli.constants import (
     DEFAULT_CONNECTION_TIMEOUT_SECONDS,
     DEFAULT_REDIS_DATABASE,
     DEFAULT_REDIS_HOST,
     DEFAULT_REDIS_PORT,
 )
-from redis_cli.domain import (
+from redis_cli.domain.errors import RedisCliError
+from redis_cli.domain.profiles import (
     ConnectionOverrides,
-    DirectoryBinding,
     ParsedRedisUrl,
-    ProfileName,
     ProfileRecord,
     ProfileRegistry,
     ProfileSelection,
@@ -26,23 +27,13 @@ from redis_cli.domain import (
     RedisConnectionConfig,
     RedisSettings,
     ResolvedConnection,
-    normalize_directory,
     replace_profile_name,
 )
+from redis_cli.domain.secrets import SecretValue
 from redis_cli.enums import ErrorCode, ProfileSelectionSource, RedisUrlScheme
-from redis_cli.secrets import SecretStore, SecretStoreError
 
 if TYPE_CHECKING:
-    from redis_cli.store import JsonProfileStore
-
-
-class ProfileServiceError(RuntimeError):
-    """Expected profile or configuration failure."""
-
-    def __init__(self, code: ErrorCode, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+    from redis_cli.ports.profile_store import ProfileStore
 
 
 class ProfileService:
@@ -50,7 +41,7 @@ class ProfileService:
 
     def __init__(
         self,
-        store: JsonProfileStore,
+        store: ProfileStore,
         secret_store: SecretStore,
         *,
         working_directory: Path | None = None,
@@ -65,7 +56,7 @@ class ProfileService:
     def require(self, name: ProfileName) -> ProfileRecord:
         profile = self.store.read().find(name)
         if profile is None:
-            raise ProfileServiceError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
+            raise RedisCliError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
         return profile
 
     def current(self, directory: Path | None = None) -> ProfileSelection | None:
@@ -75,7 +66,7 @@ class ProfileService:
             return None
         profile = registry.find(binding.profile)
         if profile is None:
-            raise ProfileServiceError(
+            raise RedisCliError(
                 ErrorCode.PROFILE_NOT_FOUND,
                 "directory binding points to a missing profile",
             )
@@ -88,8 +79,8 @@ class ProfileService:
 
         if request.password is not None:
             if not request.password:
-                raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "password cannot be empty")
-            self._set_password(request.name, request.password)
+                raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "password cannot be empty")
+            self._set_password(request.name, request.password.reveal())
             password_present = True
         elif request.clear_password:
             self._delete_password(request.name)
@@ -104,11 +95,7 @@ class ProfileService:
 
         def update(current: ProfileRegistry) -> ProfileRegistry:
             profiles = tuple(item for item in current.profiles if item.name != request.name)
-            bindings = current.bindings
-            if request.bind:
-                binding = DirectoryBinding(path=self.working_directory, profile=request.name)
-                bindings = (*tuple(item for item in bindings if item.path != binding.path), binding)
-            return ProfileRegistry(profiles=(*profiles, record), bindings=bindings)
+            return ProfileRegistry(profiles=(*profiles, record), bindings=current.bindings)
 
         self.store.update(update)
         return record
@@ -142,9 +129,9 @@ class ProfileService:
         registry = self.store.read()
         original = registry.find(old)
         if original is None:
-            raise ProfileServiceError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
+            raise RedisCliError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
         if registry.find(new) is not None:
-            raise ProfileServiceError(ErrorCode.PROFILE_CONFLICT, "profile already exists")
+            raise RedisCliError(ErrorCode.PROFILE_CONFLICT, "profile already exists")
         password = self._get_password(old) if original.password_present else None
         if password is not None:
             self._set_password(new, password)
@@ -168,7 +155,7 @@ class ProfileService:
     def remove(self, name: ProfileName) -> int:
         registry = self.store.read()
         if registry.find(name) is None:
-            raise ProfileServiceError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
+            raise RedisCliError(ErrorCode.PROFILE_NOT_FOUND, "profile not found")
         removed_bindings = sum(item.profile == name for item in registry.bindings)
         self.store.update(
             lambda current: ProfileRegistry(
@@ -194,7 +181,11 @@ class ProfileService:
                 source = ProfileSelectionSource.DIRECTORY
 
         settings = selected.settings if selected is not None else _environment_settings()
-        password = self._get_password(selected.name) if selected is not None and selected.password_present else ""
+        password = (
+            SecretValue(self._get_password(selected.name))
+            if selected is not None and selected.password_present
+            else SecretValue("")
+        )
         tls = settings.tls
 
         if overrides.url is not None:
@@ -228,7 +219,7 @@ class ProfileService:
         try:
             if existing is None:
                 if request.settings.host is None:
-                    raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "new profile requires --host or --url")
+                    raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "new profile requires --host or --url")
                 settings = RedisSettings(
                     host=request.settings.host,
                     port=DEFAULT_REDIS_PORT if request.settings.port is None else request.settings.port,
@@ -250,28 +241,28 @@ class ProfileService:
                 description = None
             return settings, description, existing.password_present
         except ValueError as exc:
-            raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "profile settings are invalid") from exc
+            raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "profile settings are invalid") from exc
 
     def _get_password(self, name: ProfileName) -> str:
         try:
             password = self.secret_store.get(name)
         except SecretStoreError as exc:
-            raise ProfileServiceError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
+            raise RedisCliError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
         if password is None:
-            raise ProfileServiceError(ErrorCode.AUTH_FAILED, "profile password is missing")
+            raise RedisCliError(ErrorCode.AUTH_FAILED, "profile password is missing")
         return password
 
     def _set_password(self, name: ProfileName, password: str) -> None:
         try:
             self.secret_store.set(name, password)
         except SecretStoreError as exc:
-            raise ProfileServiceError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
+            raise RedisCliError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
 
     def _delete_password(self, name: ProfileName) -> None:
         try:
             self.secret_store.delete(name)
         except SecretStoreError as exc:
-            raise ProfileServiceError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
+            raise RedisCliError(ErrorCode.SECRET_STORE, "secret store operation failed") from exc
 
 
 def _environment_settings() -> RedisSettings:
@@ -286,7 +277,7 @@ def _environment_settings() -> RedisSettings:
             ),
         )
     except (TypeError, ValueError) as exc:
-        raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "REDIS_* environment settings are invalid") from exc
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "REDIS_* environment settings are invalid") from exc
 
 
 def parse_redis_url(value: str) -> ParsedRedisUrl:
@@ -296,9 +287,9 @@ def parse_redis_url(value: str) -> ParsedRedisUrl:
     try:
         scheme = RedisUrlScheme(parsed.scheme)
     except ValueError as exc:
-        raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "url must use redis:// or rediss://") from exc
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "url must use redis:// or rediss://") from exc
     if not parsed.hostname:
-        raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "url must include a Redis host")
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "url must include a Redis host")
     try:
         settings = RedisSettings(
             host=parsed.hostname,
@@ -309,8 +300,8 @@ def parse_redis_url(value: str) -> ParsedRedisUrl:
             tls=scheme.tls,
         )
     except (TypeError, ValueError) as exc:
-        raise ProfileServiceError(ErrorCode.INVALID_ARGUMENT, "url contains invalid Redis settings") from exc
-    return ParsedRedisUrl(settings=settings, password=unquote(parsed.password or ""), tls=scheme.tls)
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "url contains invalid Redis settings") from exc
+    return ParsedRedisUrl(settings=settings, password=SecretValue(unquote(parsed.password or "")), tls=scheme.tls)
 
 
-__all__ = ["ProfileService", "ProfileServiceError", "parse_redis_url"]
+__all__ = ["ProfileService", "parse_redis_url"]

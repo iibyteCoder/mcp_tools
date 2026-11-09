@@ -2,41 +2,25 @@
 
 from __future__ import annotations
 
-import os
-import re
-from dataclasses import dataclass, replace
-from pathlib import Path
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
+from db_cli_kit.profiles import normalize_directory as _normalize_directory
 from redis_cli.constants import (
     DEFAULT_CONNECTION_TIMEOUT_SECONDS,
     DEFAULT_REDIS_DATABASE,
     DEFAULT_REDIS_HOST,
     DEFAULT_REDIS_PORT,
-    MAX_PROFILE_NAME_LENGTH,
     MAX_REDIS_PORT,
 )
+from redis_cli.domain.secrets import SecretValue
 from redis_cli.enums import ProfileSelectionSource, RedisUrlScheme
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-class ProfileNameError(ValueError):
-    """Raised when a profile name is not valid."""
-
-
-@dataclass(frozen=True, slots=True, order=True)
-class ProfileName:
-    """A stable, shell-friendly profile identifier."""
-
-    value: str
-
-    _PATTERN = re.compile(rf"^[A-Za-z0-9][A-Za-z0-9._-]{{0,{MAX_PROFILE_NAME_LENGTH - 1}}}$")
-
-    def __post_init__(self) -> None:
-        if not self._PATTERN.fullmatch(self.value):
-            raise ProfileNameError("profile name must contain 1-64 letters, numbers, '.', '_' or '-'")
-
-    def __str__(self) -> str:
-        return self.value
+    from db_cli_kit.profiles import DirectoryBinding, ProfileName
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +50,7 @@ class RedisConnectionConfig:
     """Resolved connection settings, including the secret at the client boundary."""
 
     settings: RedisSettings
-    password: str = ""
+    password: SecretValue = field(default_factory=lambda: SecretValue(""))
     tls: bool = False
 
     @property
@@ -74,12 +58,13 @@ class RedisConnectionConfig:
         scheme = (RedisUrlScheme.REDISS if self.tls else RedisUrlScheme.REDIS).value
         username = self.settings.username
         encoded_username = quote(username, safe="")
-        encoded_password = quote(self.password, safe="")
-        if username and self.password:
+        password = self.password.reveal()
+        encoded_password = quote(password, safe="")
+        if username and password:
             credentials = f"{encoded_username}:{encoded_password}"
         elif username:
             credentials = encoded_username
-        elif self.password:
+        elif password:
             credentials = f":{encoded_password}"
         else:
             credentials = ""
@@ -91,7 +76,7 @@ class RedisConnectionConfig:
         cls,
         settings: RedisSettings,
         *,
-        password: str = "",
+        password: SecretValue,
         tls: bool | None = None,
     ) -> RedisConnectionConfig:
         """Create a client config after the settings have been validated."""
@@ -107,17 +92,6 @@ class ProfileRecord:
     settings: RedisSettings
     description: str | None = None
     password_present: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class DirectoryBinding:
-    """A normalized directory-to-profile association."""
-
-    path: Path
-    profile: ProfileName
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "path", normalize_directory(self.path))
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +111,7 @@ class ConnectionOverrides:
     host: str | None = None
     port: int | None = None
     username: str | None = None
-    password: str | None = None
+    password: SecretValue | None = None
     database: int | None = None
     connection_timeout: float | None = None
 
@@ -147,7 +121,7 @@ class ParsedRedisUrl:
     """The typed result of parsing one Redis URL."""
 
     settings: RedisSettings
-    password: str
+    password: SecretValue
     tls: bool
 
 
@@ -182,7 +156,7 @@ class ProfileRegistry:
         return next((profile for profile in self.profiles if profile.name == name), None)
 
     def binding_for(self, directory: Path) -> DirectoryBinding | None:
-        resolved = normalize_directory(directory)
+        resolved = _normalize_directory(directory)
         candidates = [
             binding for binding in self.bindings if resolved == binding.path or binding.path in resolved.parents
         ]
@@ -221,15 +195,8 @@ class ProfileSetRequest:
     settings: ProfileSettingsPatch
     description: str | None = None
     clear_description: bool = False
-    password: str | None = None
+    password: SecretValue | None = None
     clear_password: bool = False
-    bind: bool = True
-
-
-def normalize_directory(path: Path) -> Path:
-    """Normalize a directory without requiring it to exist."""
-
-    return Path(os.path.normcase(str(path.expanduser().resolve(strict=False))))
 
 
 def replace_profile_name(record: ProfileRecord, name: ProfileName) -> ProfileRecord:
@@ -240,10 +207,7 @@ def replace_profile_name(record: ProfileRecord, name: ProfileName) -> ProfileRec
 
 __all__ = [
     "ConnectionOverrides",
-    "DirectoryBinding",
     "ParsedRedisUrl",
-    "ProfileName",
-    "ProfileNameError",
     "ProfileRecord",
     "ProfileRegistry",
     "ProfileSelection",
@@ -252,6 +216,5 @@ __all__ = [
     "RedisConnectionConfig",
     "RedisSettings",
     "ResolvedConnection",
-    "normalize_directory",
     "replace_profile_name",
 ]

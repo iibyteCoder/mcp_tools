@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import click
 
@@ -18,15 +18,21 @@ from redis_cli.cli_support import (
     JsonClickGroup,
     create_runtime,
     runtime,
+    start_command,
 )
 from redis_cli.commands import connection, hash, key, list_group, profile, server, set_group, string, zset
-from redis_cli.domain import ConnectionOverrides, ProfileName
+from redis_cli.domain.profiles import ConnectionOverrides
+from redis_cli.domain.secrets import SecretValue
+from redis_cli.enums import CommandGroup
+from redis_cli.json_types import JsonOutput, ProfileBindingData, SkillPathsData
 from redis_cli.rendering import emit_success
-from redis_cli.skill_paths import resolve_redis_cli_skill_path
+from redis_cli.skill_paths import resolve_redis_cli_skill_paths
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
+
+    from db_cli_kit.profiles import ProfileName
 
 
 @click.group(
@@ -66,7 +72,7 @@ def cli(
         host=host,
         port=port,
         username=username,
-        password=password,
+        password=None if password is None else SecretValue(password),
         database=database,
         connection_timeout=connection_timeout,
     )
@@ -87,9 +93,10 @@ def help_command(ctx: click.Context) -> None:
 def use_profile(ctx: click.Context, name: ProfileName, path: Path | None) -> None:
     """Select a profile for the current directory."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "use", profile=name)
     binding = current.profile_service.bind(name, path)
-    emit_success(name.value, {"profile": name.value, "path": str(binding.path)})
+    data = ProfileBindingData(profile=name.value, path=str(binding.path))
+    emit_success(cast("JsonOutput", data), current.success_meta(name))
 
 
 @cli.group()
@@ -98,10 +105,14 @@ def skill() -> None:
 
 
 @skill.command("path")
-def skill_path() -> None:
-    """Print the global Codex Skill document path."""
+@click.pass_context
+def skill_path(ctx: click.Context) -> None:
+    """Print the global Codex and DSH Skill document paths."""
 
-    emit_success(None, {"path": str(resolve_redis_cli_skill_path())})
+    current = start_command(ctx, CommandGroup.SKILL, "path")
+    paths = resolve_redis_cli_skill_paths()
+    data = SkillPathsData(codex=str(paths.codex), dsh=str(paths.dsh))
+    emit_success(cast("JsonOutput", data), current.success_meta(None))
 
 
 cli.add_command(connection)

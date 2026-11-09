@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import click
 
@@ -14,14 +14,28 @@ from redis_cli.cli_support import (
     POSITIVE_FLOAT,
     PROFILE_NAME,
     profile_data,
-    profile_text,
-    runtime,
+    start_command,
 )
-from redis_cli.domain import ConnectionOverrides, ProfileName, ProfileSetRequest, ProfileSettingsPatch
-from redis_cli.enums import ErrorCode
-from redis_cli.json_types import CurrentProfileView, PingData
-from redis_cli.rendering import CliError, emit_success
+from redis_cli.domain.errors import RedisCliError
+from redis_cli.domain.profiles import ConnectionOverrides, ProfileSetRequest, ProfileSettingsPatch
+from redis_cli.domain.secrets import SecretValue
+from redis_cli.enums import CommandGroup, ErrorCode
+from redis_cli.json_types import (
+    CurrentProfileView,
+    JsonOutput,
+    PingData,
+    ProfileBindingData,
+    ProfileClearData,
+    ProfileCurrentData,
+    ProfileRemoveData,
+    ProfileValidateData,
+)
+from redis_cli.rendering import emit_success
 from redis_cli.service import parse_redis_url
+
+if TYPE_CHECKING:
+    from db_cli_kit.profiles import ProfileName
+    from redis_cli.domain.profiles import ParsedRedisUrl
 
 
 @click.group()
@@ -34,9 +48,9 @@ def profile() -> None:
 def profile_list(ctx: click.Context) -> None:
     """List configured profiles."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "list")
     rows = [profile_data(item) for item in current.profile_service.list_profiles()]
-    emit_success(profile_text(current.selected_profile), rows)
+    emit_success(cast("JsonOutput", rows), current.success_meta(current.selected_profile))
 
 
 @profile.command("current")
@@ -45,16 +59,17 @@ def profile_list(ctx: click.Context) -> None:
 def profile_current(ctx: click.Context, path: Path | None) -> None:
     """Show the profile selected by the nearest directory binding."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "current")
     selection = current.profile_service.current(path)
     if selection is None or selection.profile is None:
-        emit_success(None, {"profile": None, "path": str(path or Path.cwd())})
+        data = ProfileCurrentData(profile=None, path=str(path or Path.cwd()))
+        emit_success(cast("JsonOutput", data), current.success_meta(None))
         return
-    data = CurrentProfileView(
+    view = CurrentProfileView(
         **profile_data(selection.profile),
         path=str(selection.binding.path if selection.binding is not None else path or Path.cwd()),
     )
-    emit_success(selection.profile.name.value, data)
+    emit_success(cast("JsonOutput", view), current.success_meta(selection.profile.name))
 
 
 @profile.command("show")
@@ -63,8 +78,8 @@ def profile_current(ctx: click.Context, path: Path | None) -> None:
 def profile_show(ctx: click.Context, name: ProfileName) -> None:
     """Show one profile without its password."""
 
-    current = runtime(ctx)
-    emit_success(name.value, profile_data(current.profile_service.require(name)))
+    current = start_command(ctx, CommandGroup.PROFILE, "show", profile=name)
+    emit_success(cast("JsonOutput", profile_data(current.profile_service.require(name))), current.success_meta(name))
 
 
 @profile.command("set")
@@ -79,7 +94,6 @@ def profile_show(ctx: click.Context, name: ProfileName) -> None:
 @click.option("--no-password", is_flag=True)
 @click.option("--description", type=str)
 @click.option("--no-description", is_flag=True)
-@click.option("--no-bind", is_flag=True)
 @click.pass_context
 def profile_set(
     ctx: click.Context,
@@ -94,14 +108,14 @@ def profile_set(
     no_password: bool,
     description: str | None,
     no_description: bool,
-    no_bind: bool,
 ) -> None:
     """Create or update one profile."""
 
+    current = start_command(ctx, CommandGroup.PROFILE, "set", profile=name)
     if password is not None and no_password:
-        raise CliError(ErrorCode.INVALID_ARGUMENT, "--password and --no-password cannot be combined")
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "--password and --no-password cannot be combined")
     if description is not None and no_description:
-        raise CliError(ErrorCode.INVALID_ARGUMENT, "--description and --no-description cannot be combined")
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "--description and --no-description cannot be combined")
     parsed = parse_redis_url(url) if url is not None else None
     settings = ProfileSettingsPatch(
         host=host if host is not None else None if parsed is None else parsed.settings.host,
@@ -117,20 +131,17 @@ def profile_set(
         ),
         tls=None if parsed is None else parsed.tls,
     )
-    selected_password = password if password is not None else None if parsed is None else parsed.password or None
-    current = runtime(ctx)
     record = current.profile_service.set(
         ProfileSetRequest(
             name=name,
             settings=settings,
             description=description,
             clear_description=no_description,
-            password=selected_password,
+            password=_selected_password(password, parsed),
             clear_password=no_password,
-            bind=not no_bind,
         )
     )
-    emit_success(name.value, profile_data(record))
+    emit_success(cast("JsonOutput", profile_data(record)), current.success_meta(name))
 
 
 @profile.command("select")
@@ -140,9 +151,10 @@ def profile_set(
 def profile_select(ctx: click.Context, name: ProfileName, path: Path | None) -> None:
     """Bind a profile to a directory."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "select", profile=name)
     binding = current.profile_service.bind(name, path)
-    emit_success(name.value, {"profile": name.value, "path": str(binding.path)})
+    data = ProfileBindingData(profile=name.value, path=str(binding.path))
+    emit_success(cast("JsonOutput", data), current.success_meta(name))
 
 
 @profile.command("bind")
@@ -152,9 +164,10 @@ def profile_select(ctx: click.Context, name: ProfileName, path: Path | None) -> 
 def profile_bind(ctx: click.Context, name: ProfileName, path: Path | None) -> None:
     """Alias for ``profile select``."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "bind", profile=name)
     binding = current.profile_service.bind(name, path)
-    emit_success(name.value, {"profile": name.value, "path": str(binding.path)})
+    data = ProfileBindingData(profile=name.value, path=str(binding.path))
+    emit_success(cast("JsonOutput", data), current.success_meta(name))
 
 
 @profile.command("clear")
@@ -163,9 +176,10 @@ def profile_bind(ctx: click.Context, name: ProfileName, path: Path | None) -> No
 def profile_clear(ctx: click.Context, path: Path | None) -> None:
     """Remove the direct binding for a directory."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "clear")
     binding = current.profile_service.clear(path)
-    emit_success(None, {"cleared": binding is not None, "path": str(path or Path.cwd())})
+    data = ProfileClearData(cleared=binding is not None, path=str(path or Path.cwd()))
+    emit_success(cast("JsonOutput", data), current.success_meta(None))
 
 
 @profile.command("rename")
@@ -175,9 +189,9 @@ def profile_clear(ctx: click.Context, path: Path | None) -> None:
 def profile_rename(ctx: click.Context, old: ProfileName, new: ProfileName) -> None:
     """Rename a profile and preserve its bindings and password."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "rename", profile=old)
     record = current.profile_service.rename(old, new)
-    emit_success(new.value, profile_data(record))
+    emit_success(cast("JsonOutput", profile_data(record)), current.success_meta(new))
 
 
 @profile.command("remove")
@@ -186,9 +200,10 @@ def profile_rename(ctx: click.Context, old: ProfileName, new: ProfileName) -> No
 def profile_remove(ctx: click.Context, name: ProfileName) -> None:
     """Remove a profile, its password, and all bindings."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "remove", profile=name)
     bindings = current.profile_service.remove(name)
-    emit_success(name.value, {"removed": True, "bindings_removed": bindings})
+    data = ProfileRemoveData(removed=True, bindings_removed=bindings)
+    emit_success(cast("JsonOutput", data), current.success_meta(name))
 
 
 @profile.command("validate")
@@ -197,10 +212,21 @@ def profile_remove(ctx: click.Context, name: ProfileName) -> None:
 def profile_validate(ctx: click.Context, name: ProfileName) -> None:
     """Validate one profile by issuing PING."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.PROFILE, "validate", profile=name)
     result = current.application.ping(name, ConnectionOverrides())
     pong = cast("PingData", result.data)["pong"]
-    emit_success(name.value, {"validated": True, "pong": pong})
+    data = ProfileValidateData(validated=True, pong=pong)
+    emit_success(cast("JsonOutput", data), current.success_meta(name))
+
+
+def _selected_password(password: str | None, parsed: ParsedRedisUrl | None) -> SecretValue | None:
+    """Choose the explicitly supplied or URL-derived profile password."""
+
+    if password is not None:
+        return SecretValue(password)
+    if parsed is not None and parsed.password:
+        return parsed.password
+    return None
 
 
 __all__ = ["profile"]

@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeAlias, TypedDict
+from typing import TypeAlias, TypedDict
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+from db_cli_kit.json_codec import JsonObject, JsonValue
 
-    JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
-    JsonOutput: TypeAlias = JsonValue | Mapping[str, object] | Sequence[object]
-else:
-    JsonValue: TypeAlias = object
-    JsonOutput: TypeAlias = object
+JsonOutput: TypeAlias = JsonValue
 
 
 class SettingsDocument(TypedDict):
@@ -43,22 +37,30 @@ class RegistryDocument(TypedDict):
     bindings: list[BindingDocument]
 
 
-class ErrorDocument(TypedDict, total=False):
+class ErrorDocument(TypedDict):
     code: str
     message: str
-    hint: str
+    retryable: bool
+    hint: str | None
+
+
+class MetaDocument(TypedDict):
+    command_group: str | None
+    action: str | None
+    profile: str | None
+    output_mode: str
 
 
 class SuccessEnvelope(TypedDict):
-    status: str
-    profile: str | None
+    ok: bool
     data: JsonOutput
+    meta: MetaDocument
 
 
 class FailureEnvelope(TypedDict):
-    status: str
-    profile: str | None
+    ok: bool
     error: ErrorDocument
+    meta: MetaDocument
 
 
 class PingData(TypedDict):
@@ -91,6 +93,41 @@ class CurrentProfileView(ProfileView):
     """Profile view enriched with the directory that selected it."""
 
     path: str
+
+
+class ProfileCurrentData(TypedDict):
+    """Outcome of ``profile current`` when no profile is selected."""
+
+    profile: str | None
+    path: str
+
+
+class ProfileBindingData(TypedDict):
+    """Directory binding created by ``profile select``, ``profile bind`` or ``use``."""
+
+    profile: str
+    path: str
+
+
+class ProfileClearData(TypedDict):
+    """Outcome of ``profile clear``."""
+
+    cleared: bool
+    path: str
+
+
+class ProfileRemoveData(TypedDict):
+    """Outcome of ``profile remove``."""
+
+    removed: bool
+    bindings_removed: int
+
+
+class ProfileValidateData(TypedDict):
+    """Outcome of ``profile validate``."""
+
+    validated: bool
+    pong: bool
 
 
 class ConnectionStatusData(TypedDict):
@@ -134,6 +171,13 @@ class KeyPageData(TypedDict):
     next_cursor: str | None
 
 
+class SkillPathsData(TypedDict):
+    """Global Codex and DSH Skill document paths."""
+
+    codex: str
+    dsh: str
+
+
 __all__ = [
     "BindingDocument",
     "ConnectionStatusData",
@@ -141,16 +185,23 @@ __all__ = [
     "ErrorDocument",
     "FailureEnvelope",
     "FlushData",
+    "JsonObject",
     "JsonOutput",
-    "JsonScalar",
     "JsonValue",
     "KeyInspectionData",
     "KeyPageData",
     "KeyScanData",
+    "MetaDocument",
     "PingData",
+    "ProfileBindingData",
+    "ProfileClearData",
+    "ProfileCurrentData",
     "ProfileDocument",
+    "ProfileRemoveData",
+    "ProfileValidateData",
     "ProfileView",
     "RegistryDocument",
     "SettingsDocument",
+    "SkillPathsData",
     "SuccessEnvelope",
 ]

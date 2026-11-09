@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from redis_cli.enums import RedisKeyType
 
 if TYPE_CHECKING:
-    from redis_cli.json_types import JsonValue
+    from db_cli_kit.json_codec import JsonValue
 
 
 @dataclass(frozen=True, slots=True)

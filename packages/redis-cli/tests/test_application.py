@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import cast
 
+from db_cli_kit.profiles import ProfileName
 from redis_cli.application import RedisApplication
-from redis_cli.client import RedisClient, RedisClientFactory
-from redis_cli.domain import (
+from redis_cli.domain.profiles import (
     ConnectionOverrides,
-    ProfileName,
     ProfileSetRequest,
     ProfileSettingsPatch,
     RedisConnectionConfig,
 )
+from redis_cli.ports.redis_client import RedisClient
 from redis_cli.service import ProfileService
 from redis_cli.store import JsonProfileStore
 
@@ -29,11 +29,14 @@ class FakeRedis:
     def ping(self) -> bool:
         return True
 
+    def execute_command(self, command: str, *arguments: object) -> object:
+        return "OK"
+
     def close(self) -> None:
         return None
 
 
-class FakeFactory(RedisClientFactory):
+class FakeFactory:
     def __init__(self, client: FakeRedis) -> None:
         self.client = client
 
@@ -49,13 +52,13 @@ def test_ping_uses_client_boundary_and_closes_client(tmp_path: Path) -> None:
     )
     service.set(
         ProfileSetRequest(
-            name=ProfileName("local"),
+            name=ProfileName(value="local"),
             settings=ProfileSettingsPatch(host="127.0.0.1"),
         )
     )
     application = RedisApplication(service, FakeFactory(FakeRedis()))
 
-    result = application.ping(ProfileName("local"), ConnectionOverrides())
+    result = application.ping(ProfileName(value="local"), ConnectionOverrides())
 
-    assert result.profile == ProfileName("local")
+    assert result.profile == ProfileName(value="local")
     assert result.data == {"pong": True}

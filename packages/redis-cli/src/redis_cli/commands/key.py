@@ -9,13 +9,12 @@ import click
 from redis_cli.cli_support import (
     NONNEGATIVE_INT,
     emit_result,
-    profile_text,
     run_command,
-    runtime,
+    start_command,
 )
 from redis_cli.constants import DEFAULT_PREVIEW_BYTE_LIMIT, DEFAULT_SCAN_LIMIT, MAX_SCAN_LIMIT
-from redis_cli.enums import RedisCommand
-from redis_cli.json_types import KeyPageData, KeyScanData
+from redis_cli.enums import CommandGroup, RedisCommand
+from redis_cli.json_types import JsonOutput, KeyPageData, KeyScanData
 from redis_cli.rendering import emit_success
 
 
@@ -32,15 +31,16 @@ def key() -> None:
 def key_inspect(ctx: click.Context, key_name: str, limit: int, max_bytes: int) -> None:
     """Return type, TTL, length, and a bounded preview."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.KEY, "inspect")
     emit_result(
+        current,
         current.application.inspect_key(
             current.selected_profile,
             current.overrides,
             key=key_name,
             max_bytes=max_bytes,
             limit=limit,
-        )
+        ),
     )
 
 
@@ -52,11 +52,12 @@ def key_inspect(ctx: click.Context, key_name: str, limit: int, max_bytes: int) -
 def key_scan(ctx: click.Context, pattern: str, cursor: int, limit: int) -> None:
     """Return one bounded SCAN page."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.KEY, "scan")
     emit_result(
+        current,
         current.application.scan(
             current.selected_profile, current.overrides, pattern=pattern, cursor=cursor, limit=limit
-        )
+        ),
     )
 
 
@@ -70,7 +71,7 @@ def key_scan(ctx: click.Context, pattern: str, cursor: int, limit: int) -> None:
 def key_keys(ctx: click.Context, pattern: str, page: int, page_size: int) -> None:
     """Return a bounded compatibility page over SCAN results."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.KEY, "keys")
     result = current.application.scan(
         current.selected_profile,
         current.overrides,
@@ -87,7 +88,7 @@ def key_keys(ctx: click.Context, pattern: str, page: int, page_size: int) -> Non
         page_size=page_size,
         next_cursor=data["next_cursor"],
     )
-    emit_success(profile_text(result.profile), page_data)
+    emit_success(cast("JsonOutput", page_data), current.success_meta(result.profile))
 
 
 @key.command("delete")

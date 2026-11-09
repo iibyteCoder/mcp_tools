@@ -1,8 +1,9 @@
-"""Resolve the global Codex Skill location used by the Redis CLI."""
+"""Resolve the global Codex and DSH Skill document paths used by the Redis CLI."""
 
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,16 +18,25 @@ class CodexEnvironmentVariable(str, Enum):
     CODEX_HOME = "CODEX_HOME"
 
 
-class CodexDirectory(str, Enum):
-    """Default directories used by Codex."""
+class AgentHomeDirectory(str, Enum):
+    """Default user-level installation roots for supported agent runtimes."""
 
-    DEFAULT_HOME = ".codex"
+    CODEX = ".codex"
+    DSH = ".agents"
 
 
-class CodexSkillRelativePath(str, Enum):
-    """Skill paths relative to the Codex installation root."""
+class SkillRelativePath(str, Enum):
+    """Skill paths relative to an agent installation root."""
 
     REDIS_CLI = "skills/redis-cli/SKILL.md"
+
+
+@dataclass(frozen=True, slots=True)
+class RedisSkillPaths:
+    """Global Skill document paths for both supported agent runtimes."""
+
+    codex: Path
+    dsh: Path
 
 
 def resolve_codex_home(
@@ -41,22 +51,35 @@ def resolve_codex_home(
         return Path(configured_home).expanduser()
 
     resolved_user_home = Path.home() if user_home is None else user_home
-    return resolved_user_home / CodexDirectory.DEFAULT_HOME.value
+    return resolved_user_home / AgentHomeDirectory.CODEX.value
 
 
-def resolve_redis_cli_skill_path(
+def resolve_dsh_home(user_home: Path | None = None) -> Path:
+    """Resolve the default user-level DSH agent directory."""
+
+    resolved_user_home = Path.home() if user_home is None else user_home
+    return resolved_user_home / AgentHomeDirectory.DSH.value
+
+
+def resolve_redis_cli_skill_paths(
     environment: Mapping[str, str] | None = None,
     user_home: Path | None = None,
-) -> Path:
-    """Resolve the global Redis CLI Skill document path."""
+) -> RedisSkillPaths:
+    """Resolve the global Redis CLI Skill document paths for Codex and DSH."""
 
-    return resolve_codex_home(environment, user_home) / CodexSkillRelativePath.REDIS_CLI.value
+    relative_path = SkillRelativePath.REDIS_CLI.value
+    return RedisSkillPaths(
+        codex=resolve_codex_home(environment, user_home) / relative_path,
+        dsh=resolve_dsh_home(user_home) / relative_path,
+    )
 
 
 __all__ = [
-    "CodexDirectory",
+    "AgentHomeDirectory",
     "CodexEnvironmentVariable",
-    "CodexSkillRelativePath",
+    "RedisSkillPaths",
+    "SkillRelativePath",
     "resolve_codex_home",
-    "resolve_redis_cli_skill_path",
+    "resolve_dsh_home",
+    "resolve_redis_cli_skill_paths",
 ]

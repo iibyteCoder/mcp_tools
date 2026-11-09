@@ -1,6 +1,6 @@
 ---
 name: redis-cli
-description: Use when the user asks to inspect or operate Redis with "db-redis", manage Redis connection profiles or directory bindings, run typed string/hash/list/set/zset/key operations, scan keys, inspect server information, or execute a bounded Redis pipeline.
+description: This skill should be used when the user asks to inspect or operate Redis with "db-redis", manage Redis connection profiles or directory bindings, run typed string/hash/list/set/zset/key operations, scan keys, inspect server information, or execute a bounded Redis pipeline.
 ---
 
 # Redis CLI
@@ -46,38 +46,19 @@ db-redis --json --profile local server pipeline --commands '[["PING"],["DBSIZE"]
 
 - Run `db-redis <group> --help` for leaf options.
 - `--json` is accepted for compatibility; output is JSON.
-- `db-redis skill path` prints the global Codex skill path for this tool.
+- `db-redis skill path` reports both the Codex and DSH global Skill document
+  paths.
 
 ## Profiles and connections
 
-A profile stores non-secret connection settings and an optional description.
-Use `profile set` to create/update, `profile show` to inspect without the
-password, and `profile validate` to issue a real PING.
+Read [references/connections.md](references/connections.md) for profile fields,
+directory binding, URL precedence, keyring behavior, and Skill paths.
 
-```powershell
-db-redis --json profile set local --host 127.0.0.1 --port 6379 --db 0
-db-redis --json profile validate local
-db-redis --json profile select local --path 'D:\projects\app'
-db-redis --json profile current
-db-redis --json profile clear --path 'D:\projects\app'
-db-redis --json use local
-```
-
-Connection resolution order is:
-
-1. defaults and supported environment values;
-2. the nearest directory binding;
-3. `--profile`;
-4. `--url`;
-5. individual `--host`/`--port`/`--username`/`--password`/`--db` overrides.
-
-Use `connection status` to inspect the resolved non-secret settings without
-opening a connection; `connection connect` opens, pings, and closes one session.
-Connections do not persist between CLI invocations.
-
-A profile's password is stored in the OS credential manager. Do not put a
-password in profile JSON, command output, logs, or reports. `--password` exists
-as a temporary override, but prefer the saved credential store.
+Passwords go to the OS credential manager under keyring service `db-redis` and
+stay out of profile JSON. `profile set` saves settings without binding; bind
+explicitly with `profile select`, `profile bind`, or `use`. Select a profile with
+`--profile`, or let the nearest directory binding choose one. Keep the selected
+profile, database, and server fixed; report a failed selection.
 
 ## Key and data operations
 
@@ -110,31 +91,47 @@ and supports `--commands-file` (including `-` for stdin).
 
 ## Output and errors
 
-Success documents have `status`, `profile`, and `data`. Failures have `status`,
-`profile`, and a stable `error.code` / `error.message`. A non-zero exit status or
-a non-success status means failure. Do not parse human-oriented text.
+Every invocation emits exactly one compact JSON document followed by one
+newline. Successful operations use `ok`, `data`, and `meta`:
 
-Common errors (stable uppercase codes):
+```json
+{"ok":true,"data":{"pong":true},"meta":{"command_group":"server","action":"ping","profile":"local","output_mode":"json"}}
+```
 
-- `INVALID_ARGUMENT`: correct the command, option, or mapping JSON.
-- `PROFILE_NOT_FOUND`: inspect `profile list` and select the intended profile.
-- `PROFILE_CONFLICT`: choose a different profile name or resolve the conflict.
-- `PROFILE_REGISTRY_ERROR` / `SECRET_STORE_ERROR`: inspect local profile or
-  credential storage; do not bypass the store.
-- `AUTH_FAILED` / `CONNECTION_FAILED`: fix credentials or target.
-- `TIMEOUT` / `EXECUTION_FAILED`: inspect externally visible effects before
-  retrying; diagnose the Redis error without silently changing targets.
-- `INTERNAL_ERROR`: report the failure rather than guessing at a recovery.
+Failures use `ok`, `error`, and `meta`:
+
+```json
+{"ok":false,"error":{"code":"profile_not_found","message":"profile not found","retryable":false,"hint":null},"meta":{"command_group":"profile","action":"show","profile":"missing","output_mode":"json"}}
+```
+
+`meta.command_group`, `meta.action`, and `meta.profile` are `null` when no
+command or profile has been established; `meta.output_mode` is always `"json"`.
+Typed data commands report the lowercase Redis command name as the action
+(`string get` reports `get`, `key delete` reports `del`). A non-zero exit status
+or `ok: false` means failure. Parse only JSON.
+
+Error codes are lowercase, and the process exit code depends on the category:
+
+- `invalid_argument`: correct the command, option, or mapping JSON (exit 2).
+- `profile_not_found`: inspect `profile list` and select or bind the intended
+  profile (exit 4).
+- `profile_conflict`: choose a different profile name or resolve the conflict
+  (exit 4).
+- `profile_registry` / `secret_store`: use the profile and credential store;
+  inspect local storage when it fails (exit 4).
+- `auth_failed` / `connection_failed`: fix credentials or target (exit 5).
+- `timeout` / `execution_failed` / `cancelled`: inspect externally visible
+  effects before retrying; diagnose the Redis error without silently changing
+  targets (exit 5).
+- `internal_error`: report the failure rather than guessing at a recovery
+  (exit 70).
 
 Keep passwords and connection secrets out of logs, reports, and output. Use
-bounded scans and bounded previews; do not issue unbounded key enumerations.
-Do not silently switch profiles, databases, or servers.
+bounded scans and bounded previews. Keep the selected profile, database, and
+server fixed; report a failed selection instead of retrying against another
+target.
 
-## Maintenance conventions
+## Additional resources
 
-- Redis driver APIs enter the application only through
-  `redis_cli.client.RedisClient`; third-party return values are converted at the
-  boundary.
-- New serializable results belong in `json_types.py` as named types.
-- Profile metadata is written atomically by `store.py`; secrets are managed only
-  by `secrets.py`; command handlers do not access files or keyring directly.
+- [references/connections.md](references/connections.md) - profile fields,
+  directory binding, URL precedence, keyring, Skill paths, and connection safety.

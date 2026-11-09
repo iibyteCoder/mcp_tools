@@ -52,21 +52,14 @@ db-dm --json --profile lot-01 schema analyze --table USERS --estimate-percent 10
 Read [references/connections.md](references/connections.md) for profile fields,
 directory binding, keyring behavior, and the test configuration override.
 
-A profile stores `host`, `port`, `user`, optional `schema`, `connect_timeout`
-and `query_timeout`. Passwords go to the OS credential manager under keyring
-service `db-dm`; they are never stored in the profile JSON. Use
-`--password-stdin` to avoid putting a password in process arguments.
-
-```powershell
-db-dm --json profile set lot-01 --host 127.0.0.1 --port 5236 `
-  --user <user> --schema <schema> --password-stdin
-db-dm --json profile validate lot-01
-```
+A profile stores connection settings; passwords go to the OS credential manager
+under keyring service `db-dm` and stay out of profile JSON. Use
+`--password-stdin` rather than a password argument.
 
 Select a profile with `--profile`, or bind a profile to the current directory
-with `profile bind`. Without `--profile`, a directory binding is used; SQL
-commands fall back to local parse diagnostics only, while `server`/`schema`
-commands report `profile_not_found`. Do not silently switch targets.
+with `profile bind`. Without `--profile`, a directory binding is used. Keep the
+selected target fixed: SQL commands without a target return local parse
+diagnostics only, while `server`/`schema` commands report `profile_not_found`.
 
 ## SQL input and intent
 
@@ -113,18 +106,16 @@ db-dm --json --profile lot-01 sql explain `
 
 ### Actual plans (`--actual`)
 
-`--actual` executes the read-only SQL through `disql` with
+`--actual` executes read-only SQL through `disql` with
 `SET AUTOTRACE TRACEONLY`. It requires a `disql` executable named by
 `DB_DM_DISQL_PATH`; a missing executable returns `configuration_failed`.
+Read [references/connections.md](references/connections.md) for the local
+`dm_local` wrapper and profile setup.
 
 ```powershell
 db-dm --json --profile lot-01-actual sql explain --actual `
   --sql "SELECT * FROM APP.USERS WHERE ROWNUM <= 3"
 ```
-
-- In this workspace, `lot-01` is the normal host profile (`127.0.0.1:15237`);
-  `lot-01-actual` is the disql profile using container-internal
-  `localhost:5236`. Use `lot-01-actual` for `--actual` with the local wrapper.
 
 - Allowed only for read-only SELECT/WITH. INSERT/UPDATE/DELETE/MERGE/DDL/CALL/
   SET, `SELECT ... FOR UPDATE` and `EXPLAIN ANALYZE` return `unsupported_sql`
@@ -181,20 +172,20 @@ Tabular inspection results live under `data.result.query` with `columns`, `rows`
 ## Output and errors
 
 Success envelopes are `ok` + `data` + `meta`; failures are `ok` + `error` +
-`meta`. Errors contain a stable `error.code`; never echo passwords, keyring
-values, sensitive parameter values, or SQL text. Important codes:
+`meta`. Errors contain a stable `error.code`; keep passwords, keyring values,
+sensitive parameter values, and SQL text out of output.
 
 - `invalid_argument` / `invalid_sql` / `unsupported_sql`: correct the command or SQL.
 - `profile_not_found`: select an existing profile or bind one.
 - `authentication_failed` / `connection_failed`: fix credentials or target.
-- `permission_denied`: the user lacks the required DM privilege.
+- `permission_denied`: request the required DM privilege.
 - `object_not_found` / `unsupported_object`: verify the catalog object/type.
 - `comparison_failed`: inspect `error.differences`.
-- `execution_failed`: diagnose the DM error without silently changing targets.
+- `execution_failed`: diagnose the DM error while keeping the selected target.
 
-Inspect only the rows/schema needed for the task. Do not infer a database from a
-failed selection, and do not probe after every successful call. Close sessions
-and do not repeat a write whose outcome is unknown.
+Inspect only the rows/schema needed for the task. Use the selected database
+only; report selection failures. Close sessions after use. Repeat a write only
+after confirming its outcome.
 
 ## Additional resources
 

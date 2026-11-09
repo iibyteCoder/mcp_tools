@@ -6,16 +6,17 @@ from enum import Enum
 class ErrorCode(str, Enum):
     """Stable machine-readable CLI error categories."""
 
-    INVALID_ARGUMENT = "INVALID_ARGUMENT"
-    PROFILE_NOT_FOUND = "PROFILE_NOT_FOUND"
-    PROFILE_CONFLICT = "PROFILE_CONFLICT"
-    PROFILE_REGISTRY = "PROFILE_REGISTRY_ERROR"
-    SECRET_STORE = "SECRET_STORE_ERROR"
-    AUTH_FAILED = "AUTH_FAILED"
-    CONNECTION_FAILED = "CONNECTION_FAILED"
-    TIMEOUT = "TIMEOUT"
-    EXECUTION_FAILED = "EXECUTION_FAILED"
-    INTERNAL_ERROR = "INTERNAL_ERROR"
+    INVALID_ARGUMENT = "invalid_argument"
+    PROFILE_NOT_FOUND = "profile_not_found"
+    PROFILE_CONFLICT = "profile_conflict"
+    PROFILE_REGISTRY = "profile_registry"
+    SECRET_STORE = "secret_store"
+    AUTH_FAILED = "auth_failed"
+    CONNECTION_FAILED = "connection_failed"
+    TIMEOUT = "timeout"
+    EXECUTION_FAILED = "execution_failed"
+    CANCELLED = "cancelled"
+    INTERNAL_ERROR = "internal_error"
 
 
 class RegistrySchema(str, Enum):
@@ -24,11 +25,25 @@ class RegistrySchema(str, Enum):
     REDIS_CONNECTIONS = "db-cli.redis-connections"
 
 
-class ResultStatus(str, Enum):
-    """Top-level JSON result status."""
+class CommandGroup(str, Enum):
+    """Top-level command groups reported in envelope metadata."""
 
-    SUCCESS = "success"
-    ERROR = "error"
+    PROFILE = "profile"
+    CONNECTION = "connection"
+    SERVER = "server"
+    KEY = "key"
+    STRING = "string"
+    HASH = "hash"
+    LIST = "list"
+    SET = "set"
+    ZSET = "zset"
+    SKILL = "skill"
+
+
+class OutputMode(str, Enum):
+    """Presentation modes reported in envelope metadata."""
+
+    JSON = "json"
 
 
 class RedisKeyType(str, Enum):
@@ -114,11 +129,12 @@ class ProfileSelectionSource(str, Enum):
 
 
 __all__ = [
+    "CommandGroup",
     "ErrorCode",
+    "OutputMode",
     "ProfileSelectionSource",
     "RedisCommand",
     "RedisKeyType",
     "RedisUrlScheme",
     "RegistrySchema",
-    "ResultStatus",
 ]

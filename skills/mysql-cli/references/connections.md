@@ -23,11 +23,11 @@ db-mysql --json profile remove obsolete-profile
 `profile set NAME` creates or updates a profile; omitted settings and
 descriptions remain unchanged. `--no-description` clears a saved description.
 Password storage goes through the OS credential manager under keyring service
-`db-mysql`; the password is not stored in profile JSON. Never put a password in
-a command example, output, log, error, or report.
+`db-mysql`; the password is kept out of profile JSON, examples, output, logs,
+errors, and reports.
 
-Descriptions are usage notes only; never store passwords, tokens, or other
-connection secrets in them.
+Descriptions are usage notes only; store passwords, tokens, and other connection
+secrets in the credential store.
 
 `profile validate NAME` performs an explicit connection validation for that
 profile. It does not change the profile or directory bindings. A successful
@@ -53,59 +53,17 @@ changed only by `profile bind` or `profile unbind`.
 
 Profiles may contain a host, port, user, default database, character set,
 connect timeout, and read timeout. Passwords belong only in the operating-system
-credential store. Do not expose them through `profile show`, JSON output, logs,
-errors, or reports.
+credential store; keep them out of `profile show`, JSON output, logs, errors, and
+reports.
 
-There is no silent fallback to localhost, another profile, or another database.
-If the selected profile is missing, invalid, or unavailable, return the
-appropriate error and keep the requested target unchanged. Do not switch
-connections to recover from failure.
+Use the selected profile, database, and server; report a missing, invalid, or
+unavailable selection and keep the requested target unchanged.
 
 - Authentication failures: verify the selected profile's credentials and
   permissions, then explicitly validate it.
 - Connection failures: verify the selected host, port, network reachability, and
   service state.
 - Timeouts: inspect whether the operation produced an external effect before
-  repeating it; never automatically retry a write whose final state is unknown.
-- Cancellation: treat the outcome as requiring inspection before repeating any
-  mutating operation.
-
-## Performance facts
-
-These commands are read-only unless explicitly noted:
-
-```powershell
-db-mysql --json --profile billing-dev server variables --filter innodb
-db-mysql --json --profile billing-dev server status --filter threads
-db-mysql --json --profile billing-dev server processes
-db-mysql --json --profile billing-dev server processes --include-sql
-db-mysql --json --profile billing-dev schema stats --table invoices
-```
-
-- `server variables`/`server status` read `performance_schema` in MySQL 8. There
-  is no information_schema fallback. Without `performance_schema`, the normal
-  typed execution error is returned.
-- Sensitive variable values are `NULL` with `redacted=1`.
-- `server processes` omits `info` by default. `--include-sql` may expose
-  sensitive SQL; use it only when required.
-- `schema analyze --table T` executes `ANALYZE TABLE`; it is not read-only, may
-  take metadata locks, and has no `--transaction` option.
-
-## Execution boundary
-
-Profile operations manage local connection metadata and explicit validation.
-The implemented `server` and `schema` inspection commands consume a selected
-profile and perform read-only metadata inspection, except `schema analyze`.
-The `sql` routes parse and classify one statement, then execute it through one
-session against the explicitly selected profile. `sql read`, normal
-`sql explain`, and read-only `sql benchmark`/`sql compare` never issue writes;
-`sql explain --analyze` executes the supplied SELECT/WITH; `sql write` performs
-only the supplied authorized statement and applies its explicit transaction
-action. Profile commands do not execute application SQL, and inspection commands
-do not silently edit profiles, bindings, or session databases.
-
-All successful JSON calls return one structured document. A nonzero exit status
-or `ok: false` is a failure. Keep stdout free of logs. Stable error codes include
-`invalid_argument`, `profile_not_found`, `authentication_failed`,
-`connection_failed`, `timeout`, `cancelled`, `database_not_found`,
-`execution_failed`, `comparison_failed`, and `unsupported_sql`.
+  repeating it; repeat only after the outcome is known.
+- Cancellation: inspect the visible effect before repeating any mutating
+  operation.

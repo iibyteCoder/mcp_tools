@@ -2,52 +2,77 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 import click
 
-from redis_cli.enums import ErrorCode, ResultStatus
+from db_cli_kit.json_codec import encode_json_document
+from redis_cli.enums import ErrorCode, OutputMode
+from redis_cli.json_types import MetaDocument
 
 if TYPE_CHECKING:
+    from redis_cli.command_meta import CommandMeta
+    from redis_cli.domain.errors import RedisCliError
     from redis_cli.json_types import ErrorDocument, FailureEnvelope, JsonOutput, SuccessEnvelope
 
 
-class CliError(RuntimeError):
-    """An expected command-boundary failure."""
+_EXIT_CODES: dict[ErrorCode, int] = {
+    ErrorCode.INVALID_ARGUMENT: 2,
+    ErrorCode.PROFILE_NOT_FOUND: 4,
+    ErrorCode.PROFILE_CONFLICT: 4,
+    ErrorCode.PROFILE_REGISTRY: 4,
+    ErrorCode.SECRET_STORE: 4,
+    ErrorCode.AUTH_FAILED: 5,
+    ErrorCode.CONNECTION_FAILED: 5,
+    ErrorCode.TIMEOUT: 5,
+    ErrorCode.EXECUTION_FAILED: 5,
+    ErrorCode.CANCELLED: 5,
+    ErrorCode.INTERNAL_ERROR: 70,
+}
 
-    def __init__(self, code: ErrorCode, message: str, *, hint: str | None = None, exit_code: int = 2) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.hint = hint
-        self.exit_code = exit_code
 
-
-def emit_success(profile: str | None, data: JsonOutput) -> None:
+def emit_success(data: JsonOutput, meta: CommandMeta) -> None:
     """Write one compact success document."""
 
     envelope: SuccessEnvelope = {
-        "status": ResultStatus.SUCCESS.value,
-        "profile": profile,
+        "ok": True,
         "data": data,
+        "meta": _meta_document(meta),
     }
-    click.echo(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")))
+    click.echo(encode_json_document(envelope), nl=False)
 
 
-def emit_failure(profile: str | None, error: CliError) -> int:
+def emit_failure(error: RedisCliError, meta: CommandMeta) -> int:
     """Write one stable error document and return its process code."""
 
-    details: ErrorDocument = {"code": error.code.value, "message": error.message}
-    if error.hint is not None:
-        details["hint"] = error.hint
-    envelope: FailureEnvelope = {
-        "status": ResultStatus.ERROR.value,
-        "profile": profile,
-        "error": details,
+    details: ErrorDocument = {
+        "code": error.code.value,
+        "message": error.message,
+        "retryable": error.retryable,
+        "hint": error.hint,
     }
-    click.echo(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")))
-    return error.exit_code
+    envelope: FailureEnvelope = {
+        "ok": False,
+        "error": details,
+        "meta": _meta_document(meta),
+    }
+    click.echo(encode_json_document(envelope), nl=False)
+    return exit_code_for(error.code)
 
 
-__all__ = ["CliError", "emit_failure", "emit_success"]
+def exit_code_for(code: ErrorCode) -> int:
+    """Map one stable error category to its process exit code."""
+
+    return _EXIT_CODES[code]
+
+
+def _meta_document(meta: CommandMeta) -> MetaDocument:
+    return MetaDocument(
+        command_group=None if meta.group is None else meta.group.value,
+        action=meta.action,
+        profile=None if meta.profile is None else meta.profile.value,
+        output_mode=OutputMode.JSON.value,
+    )
+
+
+__all__ = ["emit_failure", "emit_success", "exit_code_for"]

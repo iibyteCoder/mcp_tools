@@ -4,24 +4,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import click
 
-from redis_cli.application import OperationResult, RedisAction, RedisApplication
-from redis_cli.client import RedisClientFactory, RedisOperationError
-from redis_cli.domain import ConnectionOverrides, ProfileName, ProfileNameError
-from redis_cli.enums import ErrorCode, RedisCommand
-from redis_cli.rendering import CliError, emit_failure, emit_success
-from redis_cli.secrets import KeyringSecretStore
-from redis_cli.service import ProfileService, ProfileServiceError
-from redis_cli.store import JsonProfileStore, ProfileStoreError
+from db_cli_kit.profiles import ProfileName
+from db_cli_kit.secrets import KeyringSecretStore
+from redis_cli.adapters.redis_py import RedisPyClientFactory
+from redis_cli.application import OperationResult, RedisApplication
+from redis_cli.command_meta import CommandMeta
+from redis_cli.constants import PASSWORD_SERVICE_NAME
+from redis_cli.domain.errors import RedisCliError
+from redis_cli.domain.profiles import ConnectionOverrides
+from redis_cli.enums import CommandGroup, ErrorCode, RedisCommand
+from redis_cli.rendering import emit_failure, emit_success
+from redis_cli.service import ProfileService
+from redis_cli.store import JsonProfileStore
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from redis_cli.domain import ProfileRecord
+    from redis_cli.domain.profiles import ProfileRecord
     from redis_cli.json_types import ProfileView
+    from redis_cli.ports.redis_client import RedisClientFactory
 
 
 class ProfileNameType(click.ParamType):
@@ -33,8 +38,8 @@ class ProfileNameType(click.ParamType):
         if isinstance(value, ProfileName):
             return value
         try:
-            return ProfileName(str(value))
-        except ProfileNameError as exc:
+            return ProfileName(value=str(value))
+        except ValueError as exc:
             self.fail(str(exc), param, ctx)
             raise AssertionError("Click ParamType.fail always raises") from exc
 
@@ -46,14 +51,41 @@ NONNEGATIVE_INT = click.IntRange(min=0)
 PORT = click.IntRange(min=1, max=65_535)
 
 
+class ActionOperation(Protocol):
+    """Bound application operation that resolves its own connection."""
+
+    def __call__(
+        self,
+        profile: ProfileName | None,
+        overrides: ConnectionOverrides,
+    ) -> OperationResult: ...
+
+
 @dataclass(slots=True)
 class CliRuntime:
-    """Dependencies and root options for one CLI invocation."""
+    """Dependencies, root options and active command metadata for one invocation."""
 
     profile_service: ProfileService
     application: RedisApplication
     selected_profile: ProfileName | None = None
     overrides: ConnectionOverrides = field(default_factory=ConnectionOverrides)
+    meta: CommandMeta = field(default_factory=CommandMeta)
+
+    def begin(self, group: CommandGroup, action: str, profile: ProfileName | None = None) -> None:
+        """Record the command that is about to execute."""
+
+        self.meta = CommandMeta(group=group, action=action, profile=profile)
+
+    def success_meta(self, profile: ProfileName | None) -> CommandMeta:
+        """Return the metadata for a successful envelope."""
+
+        return CommandMeta(group=self.meta.group, action=self.meta.action, profile=profile)
+
+    def failure_meta(self) -> CommandMeta:
+        """Return the metadata for a failed envelope."""
+
+        profile = self.meta.profile if self.meta.profile is not None else self.selected_profile
+        return CommandMeta(group=self.meta.group, action=self.meta.action, profile=profile)
 
 
 def create_runtime(
@@ -66,10 +98,10 @@ def create_runtime(
 
     profile_service = ProfileService(
         JsonProfileStore(path=store_path, lock_timeout=JsonProfileStore.LOCK_TIMEOUT_SECONDS),
-        KeyringSecretStore(),
+        KeyringSecretStore(PASSWORD_SERVICE_NAME),
         working_directory=working_directory,
     )
-    application = RedisApplication(profile_service, client_factory or RedisClientFactory())
+    application = RedisApplication(profile_service, client_factory or RedisPyClientFactory())
     return CliRuntime(profile_service=profile_service, application=application)
 
 
@@ -98,63 +130,26 @@ class JsonClickGroup(click.Group):
             exit_code = 0 if result is None else int(result)
         except click.exceptions.Exit as control:
             exit_code = int(control.exit_code)
-        except CliError as error:
-            exit_code = emit_failure(profile_text(runtime.selected_profile), error)
-        except ProfileStoreError as error:
-            exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(ErrorCode.PROFILE_REGISTRY, error.message, exit_code=4),
-            )
-        except ProfileServiceError as error:
-            exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(error.code, error.message, exit_code=_exit_code_for(error.code)),
-            )
-        except RedisOperationError as error:
-            exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(error.code, error.message, exit_code=5),
-            )
+        except RedisCliError as error:
+            exit_code = emit_failure(error, runtime.failure_meta())
         except click.Abort:
             exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(ErrorCode.EXECUTION_FAILED, "operation cancelled", exit_code=5),
+                RedisCliError(ErrorCode.CANCELLED, "operation cancelled"),
+                runtime.failure_meta(),
             )
         except click.ClickException as error:
             exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(ErrorCode.INVALID_ARGUMENT, error.format_message(), exit_code=2),
+                RedisCliError(ErrorCode.INVALID_ARGUMENT, error.format_message()),
+                runtime.failure_meta(),
             )
         except Exception:
             exit_code = emit_failure(
-                profile_text(runtime.selected_profile),
-                CliError(ErrorCode.INTERNAL_ERROR, "internal error", exit_code=70),
+                RedisCliError(ErrorCode.INTERNAL_ERROR, "internal error"),
+                runtime.failure_meta(),
             )
         if standalone_mode and exit_code != 0:
             raise SystemExit(exit_code)
         return exit_code
-
-
-def _exit_code_for(code: ErrorCode) -> int:
-    return (
-        2
-        if code is ErrorCode.INVALID_ARGUMENT
-        else 4
-        if code
-        in {
-            ErrorCode.PROFILE_NOT_FOUND,
-            ErrorCode.PROFILE_CONFLICT,
-            ErrorCode.PROFILE_REGISTRY,
-            ErrorCode.SECRET_STORE,
-        }
-        else 5
-    )
-
-
-def profile_text(profile: ProfileName | None) -> str | None:
-    """Convert an optional domain profile name to its JSON representation."""
-
-    return None if profile is None else profile.value
 
 
 def runtime(ctx: click.Context) -> CliRuntime:
@@ -166,24 +161,101 @@ def runtime(ctx: click.Context) -> CliRuntime:
     return value
 
 
-def emit_result(result: OperationResult) -> None:
-    """Render one application result."""
-
-    emit_success(profile_text(result.profile), result.data)
-
-
-def run_action(ctx: click.Context, action: RedisAction) -> None:
-    """Execute one typed application action."""
+def start_command(
+    ctx: click.Context,
+    group: CommandGroup,
+    action: str,
+    *,
+    profile: ProfileName | None = None,
+) -> CliRuntime:
+    """Record the active command and return the invocation runtime."""
 
     current = runtime(ctx)
-    emit_result(current.application.execute(current.selected_profile, current.overrides, action))
+    current.begin(group, action, profile)
+    return current
+
+
+def emit_result(current: CliRuntime, result: OperationResult) -> None:
+    """Render one application result with its resolved profile."""
+
+    emit_success(result.data, current.success_meta(result.profile))
+
+
+def run_action(
+    ctx: click.Context,
+    operation: ActionOperation,
+    *,
+    group: CommandGroup,
+    action: str,
+) -> None:
+    """Execute one bound application operation for a known command group."""
+
+    current = start_command(ctx, group, action)
+    emit_result(current, operation(current.selected_profile, current.overrides))
+
+
+_COMMAND_GROUPS: dict[RedisCommand, CommandGroup] = {
+    RedisCommand.APPEND: CommandGroup.STRING,
+    RedisCommand.DEL: CommandGroup.KEY,
+    RedisCommand.EXISTS: CommandGroup.KEY,
+    RedisCommand.EXPIRE: CommandGroup.KEY,
+    RedisCommand.GET: CommandGroup.STRING,
+    RedisCommand.HDEL: CommandGroup.HASH,
+    RedisCommand.HGET: CommandGroup.HASH,
+    RedisCommand.HGETALL: CommandGroup.HASH,
+    RedisCommand.HEXISTS: CommandGroup.HASH,
+    RedisCommand.HKEYS: CommandGroup.HASH,
+    RedisCommand.HLEN: CommandGroup.HASH,
+    RedisCommand.HSET: CommandGroup.HASH,
+    RedisCommand.HVALS: CommandGroup.HASH,
+    RedisCommand.INCRBY: CommandGroup.STRING,
+    RedisCommand.LINDEX: CommandGroup.LIST,
+    RedisCommand.LLEN: CommandGroup.LIST,
+    RedisCommand.LPOP: CommandGroup.LIST,
+    RedisCommand.LPUSH: CommandGroup.LIST,
+    RedisCommand.LRANGE: CommandGroup.LIST,
+    RedisCommand.LTRIM: CommandGroup.LIST,
+    RedisCommand.MGET: CommandGroup.STRING,
+    RedisCommand.MSET: CommandGroup.STRING,
+    RedisCommand.PERSIST: CommandGroup.KEY,
+    RedisCommand.RANDOMKEY: CommandGroup.KEY,
+    RedisCommand.RENAME: CommandGroup.KEY,
+    RedisCommand.RPOP: CommandGroup.LIST,
+    RedisCommand.RPUSH: CommandGroup.LIST,
+    RedisCommand.SADD: CommandGroup.SET,
+    RedisCommand.SCARD: CommandGroup.SET,
+    RedisCommand.SISMEMBER: CommandGroup.SET,
+    RedisCommand.SMEMBERS: CommandGroup.SET,
+    RedisCommand.SREM: CommandGroup.SET,
+    RedisCommand.SET: CommandGroup.STRING,
+    RedisCommand.STRLEN: CommandGroup.STRING,
+    RedisCommand.TTL: CommandGroup.KEY,
+    RedisCommand.TYPE: CommandGroup.KEY,
+    RedisCommand.ZADD: CommandGroup.ZSET,
+    RedisCommand.ZCARD: CommandGroup.ZSET,
+    RedisCommand.ZRANGE: CommandGroup.ZSET,
+    RedisCommand.ZRANK: CommandGroup.ZSET,
+    RedisCommand.ZREM: CommandGroup.ZSET,
+    RedisCommand.ZREVRANGE: CommandGroup.ZSET,
+    RedisCommand.ZREVRANK: CommandGroup.ZSET,
+    RedisCommand.ZSCORE: CommandGroup.ZSET,
+}
+
+
+def command_group(command: RedisCommand) -> CommandGroup:
+    """Return the top-level command group that owns one Redis command."""
+
+    return _COMMAND_GROUPS[command]
 
 
 def run_command(ctx: click.Context, command: RedisCommand, arguments: tuple[str, ...]) -> None:
     """Execute one raw Redis command through the application boundary."""
 
-    current = runtime(ctx)
-    emit_result(current.application.command(current.selected_profile, current.overrides, command, arguments))
+    current = start_command(ctx, command_group(command), command.value.lower())
+    emit_result(
+        current,
+        current.application.command(current.selected_profile, current.overrides, command, arguments),
+    )
 
 
 def profile_data(profile: ProfileRecord) -> ProfileView:
@@ -210,11 +282,12 @@ __all__ = [
     "PROFILE_NAME",
     "CliRuntime",
     "JsonClickGroup",
+    "command_group",
     "create_runtime",
     "emit_result",
     "profile_data",
-    "profile_text",
     "run_action",
     "run_command",
     "runtime",
+    "start_command",
 ]

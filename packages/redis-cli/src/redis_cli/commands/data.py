@@ -6,8 +6,8 @@ import click
 
 from redis_cli.cli_support import NONNEGATIVE_INT, run_command
 from redis_cli.command_parsing import mapping_arguments
+from redis_cli.domain.errors import RedisCliError
 from redis_cli.enums import ErrorCode, RedisCommand
-from redis_cli.rendering import CliError
 
 
 @click.group()
@@ -40,9 +40,9 @@ def string_set(
     xx: bool,
 ) -> None:
     if ex is not None and px is not None:
-        raise CliError(ErrorCode.INVALID_ARGUMENT, "--ex and --px cannot be combined")
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "--ex and --px cannot be combined")
     if nx and xx:
-        raise CliError(ErrorCode.INVALID_ARGUMENT, "--nx and --xx cannot be combined")
+        raise RedisCliError(ErrorCode.INVALID_ARGUMENT, "--nx and --xx cannot be combined")
     arguments = [key_name, value]
     if ex is not None:
         arguments.extend(("EX", str(ex)))

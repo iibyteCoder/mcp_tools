@@ -1,6 +1,6 @@
 ---
 name: mysql-cli
-description: Use when the user asks to inspect or operate MySQL with "db-mysql", run or explain MySQL SQL, benchmark or compare queries, inspect schemas/indexes/statistics, analyze table statistics, inspect server variables/status/processes, or manage MySQL connection profiles.
+description: This skill should be used when the user asks to inspect or operate MySQL with "db-mysql", run or explain MySQL SQL, benchmark or compare queries, inspect schemas/indexes/statistics, analyze table statistics, inspect server variables/status/processes, or manage MySQL connection profiles.
 ---
 
 # MySQL CLI
@@ -56,15 +56,15 @@ db-mysql --json --profile billing-dev sql compare --left-sql-file old.sql --righ
 Read [references/connections.md](references/connections.md) for profile fields,
 directory binding, keyring behavior, and validation.
 
-A profile stores `host`, `port`, `user`, optional `database`, `charset`,
-`connect_timeout`, and `read_timeout`. Passwords go to the OS credential manager
-under keyring service `db-mysql`; they are never stored in profile JSON. Use
-`profile show` to inspect non-secret settings and `profile validate` to open a
-real connection.
+A profile stores connection settings; passwords go to the OS credential manager
+under keyring service `db-mysql` and stay out of profile JSON. Use
+`profile show` for non-secret settings and `profile validate` for an explicit
+connection check.
 
 Select a profile with `--profile`, or bind one to a directory with `profile bind`.
-Without a profile or binding, SQL commands produce local parse diagnostics only;
-they do not connect. Never silently switch to another profile or database.
+Without a profile or binding, SQL commands return local parse diagnostics only;
+no connection is opened. Keep the selected profile and database fixed; report a
+failed selection instead of switching targets.
 
 ## Server and schema inspection
 
@@ -149,7 +149,7 @@ db-mysql --json --profile billing-dev sql explain --analyze `
   --sql "SELECT * FROM invoices WHERE id = 1"
 ```
 
-- `--analyze` accepts only raw SELECT/WITH; do not include `EXPLAIN`.
+- `--analyze` accepts only raw SELECT/WITH; supply the query without EXPLAIN.
 - It executes the query through `EXPLAIN ANALYZE`; only read-only statements are
   accepted.
 - `EXPLAIN ANALYZE` supports TREE output; non-TREE `ANALYZE` formats and unknown
@@ -168,9 +168,9 @@ db-mysql --json --profile billing-dev sql explain --analyze `
 ## Output and errors
 
 Success envelopes are `ok` + `data` + `meta`; failures are `ok` + `error` +
-`meta`. Errors contain a stable `error.code`; never echo passwords, keyring
-values, sensitive variable values, or SQL text unless the command explicitly
-requested it.
+`meta`. Errors contain a stable `error.code`; keep passwords, keyring values,
+sensitive variable values, and SQL text out of output unless the command
+explicitly requested them.
 
 - `invalid_argument` / `invalid_sql` / `unsupported_sql`: correct the command or SQL.
 - `profile_not_found`: select an existing profile or bind one.
@@ -178,11 +178,11 @@ requested it.
 - `database_not_found`: verify the selected database without switching targets.
 - `timeout` / `cancelled`: inspect externally visible effects before retrying.
 - `comparison_failed`: inspect `error.differences`.
-- `execution_failed`: diagnose the MySQL error without silently changing targets.
+- `execution_failed`: diagnose the MySQL error while keeping the selected target.
 
-Inspect only the rows/schema needed for the task. Do not infer a database from a
-failed selection, and do not probe after every successful call. Close sessions;
-never repeat a write whose outcome is unknown.
+Inspect only the rows/schema needed for the task. Use the selected database
+only; report selection failures. Close sessions after use. Repeat a write only
+after confirming its outcome.
 
 ## Additional resources
 

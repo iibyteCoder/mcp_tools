@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import click
 
-from redis_cli.cli_support import emit_result, profile_text, runtime
-from redis_cli.json_types import ConnectionStatusData
+from redis_cli.cli_support import run_action, runtime, start_command
+from redis_cli.enums import CommandGroup
+from redis_cli.json_types import ConnectionStatusData, JsonOutput
 from redis_cli.rendering import emit_success
 
 
@@ -19,7 +22,7 @@ def connection() -> None:
 def connection_status(ctx: click.Context) -> None:
     """Show resolved non-secret connection settings without connecting."""
 
-    current = runtime(ctx)
+    current = start_command(ctx, CommandGroup.CONNECTION, "status")
     resolved = current.profile_service.resolve(current.selected_profile, current.overrides)
     data = ConnectionStatusData(
         source=resolved.source.value,
@@ -31,7 +34,7 @@ def connection_status(ctx: click.Context) -> None:
         tls=resolved.config.tls,
         password_present=bool(resolved.config.password),
     )
-    emit_success(profile_text(resolved.profile), data)
+    emit_success(cast("JsonOutput", data), current.success_meta(resolved.profile))
 
 
 @connection.command("connect")
@@ -40,7 +43,7 @@ def connection_connect(ctx: click.Context) -> None:
     """Connect, ping, and close; connections do not persist between calls."""
 
     current = runtime(ctx)
-    emit_result(current.application.ping(current.selected_profile, current.overrides))
+    run_action(ctx, current.application.ping, group=CommandGroup.CONNECTION, action="connect")
 
 
 __all__ = ["connection"]
