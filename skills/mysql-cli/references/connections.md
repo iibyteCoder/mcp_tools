@@ -12,8 +12,8 @@ db-mysql --json profile show billing-dev
 db-mysql --json profile set billing-dev --host db.example --port 3306 --user app --database billing
 db-mysql --json profile set billing-dev --no-description
 db-mysql --json profile validate billing-dev
-db-mysql --json profile bind billing-dev --path 'D:\projects\billing'
-db-mysql --json profile unbind --path 'D:\projects\billing'
+db-mysql --json profile bind billing-dev --path './billing'
+db-mysql --json profile unbind --path './billing'
 db-mysql --json profile rename billing-dev billing-staging
 db-mysql --json profile remove obsolete-profile
 ```

@@ -22,10 +22,10 @@ Passwords live only in the OS credential manager under keyring service
 db-redis --json profile set local --host 127.0.0.1 --port 6379 --db 0
 db-redis --json profile show local
 db-redis --json profile validate local
-db-redis --json profile select local --path 'D:\projects\app'
+db-redis --json profile select local --path './app'
 db-redis --json profile current
 db-redis --json use local
-db-redis --json profile clear --path 'D:\projects\app'
+db-redis --json profile clear --path './app'
 ```
 
 `profile set` creates or updates a profile without changing any directory
@@ -52,7 +52,7 @@ pings, and closes it. Connections do not persist between invocations.
 `db-redis skill path` reports both installed Skill locations:
 
 ```json
-{"codex":"C:\\Users\\me\\.codex\\skills\\redis-cli\\SKILL.md","dsh":"C:\\Users\\me\\.agents\\skills\\redis-cli\\SKILL.md"}
+{"codex":"<home>\\.codex\\skills\\redis-cli\\SKILL.md","dsh":"<home>\\.agents\\skills\\redis-cli\\SKILL.md"}
 ```
 
 Codex honours `CODEX_HOME`; the DSH path is resolved under the user home.

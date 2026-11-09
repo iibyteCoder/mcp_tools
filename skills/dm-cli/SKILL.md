@@ -27,20 +27,20 @@ Examples:
 
 ```powershell
 db-dm --json profile list
-db-dm --json --profile lot-01 server inspect
-db-dm --json --profile lot-01 server capabilities
-db-dm --json --profile lot-01 server parameters --filter PWD
-db-dm --json --profile lot-01 server parameters --all
+db-dm --json --profile dm-dev server inspect
+db-dm --json --profile dm-dev server capabilities
+db-dm --json --profile dm-dev server parameters --filter PWD
+db-dm --json --profile dm-dev server parameters --all
 
-db-dm --json --profile lot-01 schema databases
-db-dm --json --profile lot-01 schema tables --schema APP
-db-dm --json --profile lot-01 schema describe --table USERS --schema APP
-db-dm --json --profile lot-01 schema indexes --table USERS --schema APP
-db-dm --json --profile lot-01 schema stats --table USERS --schema APP
-db-dm --json --profile lot-01 schema ddl --type table --name USERS --schema APP
-db-dm --json --profile lot-01 schema constraints --table USERS --schema APP
-db-dm --json --profile lot-01 schema objects --schema APP
-db-dm --json --profile lot-01 schema analyze --table USERS --estimate-percent 10 --cascade
+db-dm --json --profile dm-dev schema databases
+db-dm --json --profile dm-dev schema tables --schema APP
+db-dm --json --profile dm-dev schema describe --table USERS --schema APP
+db-dm --json --profile dm-dev schema indexes --table USERS --schema APP
+db-dm --json --profile dm-dev schema stats --table USERS --schema APP
+db-dm --json --profile dm-dev schema ddl --type table --name USERS --schema APP
+db-dm --json --profile dm-dev schema constraints --table USERS --schema APP
+db-dm --json --profile dm-dev schema objects --schema APP
+db-dm --json --profile dm-dev schema analyze --table USERS --estimate-percent 10 --cascade
 ```
 
 - `--schema` and `--database` are aliases; DM calls its namespace a schema.
@@ -92,7 +92,7 @@ SELECT/SHOW/DESCRIBE, `write` for INSERT/UPDATE/DELETE/MERGE/DDL/CALL/SET,
 never executes the explained SQL and accepts no `--params-file`.
 
 ```powershell
-db-dm --json --profile lot-01 sql explain `
+db-dm --json --profile dm-dev sql explain `
   --sql "SELECT * FROM APP.USERS WHERE ID = 1"
 ```
 
@@ -109,11 +109,11 @@ db-dm --json --profile lot-01 sql explain `
 `--actual` executes read-only SQL through `disql` with
 `SET AUTOTRACE TRACEONLY`. It requires a `disql` executable named by
 `DB_DM_DISQL_PATH`; a missing executable returns `configuration_failed`.
-Read [references/connections.md](references/connections.md) for the local
-`dm_local` wrapper and profile setup.
+Read [references/connections.md](references/connections.md) for profile and
+disql setup.
 
 ```powershell
-db-dm --json --profile lot-01-actual sql explain --actual `
+db-dm --json --profile dm-actual sql explain --actual `
   --sql "SELECT * FROM APP.USERS WHERE ROWNUM <= 3"
 ```
 
