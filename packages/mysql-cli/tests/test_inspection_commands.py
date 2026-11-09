@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from click.testing import CliRunner
 
+from db_cli_kit.profiles import ProfileName
 from mysql_cli.application.results import InspectionCommandData
 from mysql_cli.application.runner import CliRuntime
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
-from mysql_cli.domain.profile import ProfileName
 from mysql_cli.presentation.click.app import cli
 from mysql_client import (
     ColumnDefinition,
@@ -61,6 +61,9 @@ def runtime(service: FakeInspectionService) -> CliRuntime:
     [
         (["server", "inspect"], CommandGroup.SERVER, CommandAction.INSPECT),
         (["server", "capabilities"], CommandGroup.SERVER, CommandAction.CAPABILITIES),
+        (["server", "variables"], CommandGroup.SERVER, CommandAction.VARIABLES),
+        (["server", "status"], CommandGroup.SERVER, CommandAction.STATUS),
+        (["server", "processes"], CommandGroup.SERVER, CommandAction.PROCESSES),
         (["schema", "databases"], CommandGroup.SCHEMA, CommandAction.DATABASES),
         (["schema", "tables", "--database", "billing"], CommandGroup.SCHEMA, CommandAction.TABLES),
         (["schema", "describe", "--database", "billing", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.DESCRIBE),
@@ -92,3 +95,90 @@ def test_schema_targets_are_validated_at_click_boundary() -> None:
     assert invalid_database.exit_code == 2
     assert json.loads(invalid_database.stdout)["error"]["code"] == "invalid_argument"
     assert service.requests == []
+
+
+@pytest.mark.parametrize("command", ["variables", "status"])
+def test_server_metrics_filter_is_mapped_to_the_request(command: str) -> None:
+    service = FakeInspectionService()
+    result = CliRunner().invoke(
+        cli,
+        ["--profile", "dev", "server", command, "--filter", " buffer "],
+        obj=runtime(service),
+    )
+
+    assert result.exit_code == 0
+    request = service.requests[0]
+    assert request.group is CommandGroup.SERVER
+    assert request.action.value == command
+    assert request.server_filter_text == "buffer"
+    assert request.server_all is False
+
+
+@pytest.mark.parametrize("command", ["variables", "status"])
+def test_server_metrics_all_is_mapped_to_the_request(command: str) -> None:
+    service = FakeInspectionService()
+    result = CliRunner().invoke(
+        cli,
+        ["--profile", "dev", "server", command, "--all"],
+        obj=runtime(service),
+    )
+
+    assert result.exit_code == 0
+    request = service.requests[0]
+    assert request.action.value == command
+    assert request.server_filter_text is None
+    assert request.server_all is True
+
+
+@pytest.mark.parametrize("command", ["variables", "status"])
+def test_server_metrics_filter_and_all_are_mutually_exclusive(command: str) -> None:
+    service = FakeInspectionService()
+    result = CliRunner().invoke(
+        cli,
+        ["--profile", "dev", "server", command, "--filter", "buffer", "--all"],
+        obj=runtime(service),
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"]["code"] == "invalid_argument"
+    assert payload["error"]["details"][0]["error_type"] == "mutually_exclusive_inputs"
+    assert service.requests == []
+
+
+@pytest.mark.parametrize("command", ["variables", "status"])
+def test_server_metrics_filter_must_not_be_blank(command: str) -> None:
+    service = FakeInspectionService()
+    result = CliRunner().invoke(
+        cli,
+        ["--profile", "dev", "server", command, "--filter", "   "],
+        obj=runtime(service),
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "invalid_argument"
+    assert service.requests == []
+
+
+@pytest.mark.parametrize("include_sql", [False, True])
+def test_server_processes_include_sql_is_mapped_to_the_request(include_sql: bool) -> None:
+    service = FakeInspectionService()
+    arguments = ["--profile", "dev", "server", "processes"]
+    if include_sql:
+        arguments.append("--include-sql")
+
+    result = CliRunner().invoke(cli, arguments, obj=runtime(service))
+
+    assert result.exit_code == 0
+    request = service.requests[0]
+    assert request.group is CommandGroup.SERVER
+    assert request.action is CommandAction.PROCESSES
+    assert request.server_include_sql is include_sql
+
+
+def test_server_processes_help_warns_about_sensitive_sql() -> None:
+    result = CliRunner().invoke(cli, ["server", "processes", "--help"])
+
+    assert result.exit_code == 0
+    assert "sensitive SQL" in result.stdout
+    assert "PROCESS" in result.stdout

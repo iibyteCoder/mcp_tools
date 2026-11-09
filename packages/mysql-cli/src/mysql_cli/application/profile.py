@@ -7,18 +7,16 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from db_cli_kit.profiles import DirectoryBinding, normalize_directory
+from db_cli_kit.secrets import SecretStoreError
 from mysql_cli.domain.profile import (
-    DirectoryBinding,
-    ProfileName,
     ProfileRecord,
     ProfileRegistry,
     ProfileSelection,
     ProfileSelectionSource,
     ProfileSetRequest,
     ProfileSettings,
-    normalize_directory,
 )
-from mysql_cli.ports.secret_store import SecretStoreError
 from mysql_client import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_MYSQL_CHARSET,
@@ -31,8 +29,9 @@ from mysql_client import (
 )
 
 if TYPE_CHECKING:
+    from db_cli_kit.profiles import ProfileName
+    from db_cli_kit.secrets import SecretStore
     from mysql_cli.ports.profile_store import ProfileStore
-    from mysql_cli.ports.secret_store import SecretStore
     from mysql_client.ports.driver import DriverFactory
 
 

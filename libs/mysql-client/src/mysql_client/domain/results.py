@@ -138,6 +138,24 @@ class InspectionResult:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AnalyzeTableRow:
+    """One typed row returned by ``ANALYZE TABLE``."""
+
+    table_name: str
+    operation: str
+    message_type: str
+    message: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AnalyzeTableResult:
+    """Typed rows returned by one ``ANALYZE TABLE`` statement."""
+
+    rows: tuple[AnalyzeTableRow, ...]
+    metadata: ExecutionMetadata
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ErrorReport:
     """Stable structured error data without process or presentation policy."""
 
@@ -156,4 +174,5 @@ ResponsePayload: TypeAlias = (
     | BenchmarkResult
     | CompareResult
     | InspectionResult
+    | AnalyzeTableResult
 )

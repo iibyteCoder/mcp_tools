@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from mysql_client.domain.configuration import MySqlConnectionConfig, SecretValue
-from mysql_client.domain.enums import DriverFailureKind, WriteOutcome
+from mysql_client.domain.enums import DriverFailureKind, ExplainFormat, WriteOutcome
 from mysql_client.domain.errors import InvalidArgumentError, WriteExecutionError
 from mysql_client.domain.requests import (
     BenchmarkRequest,
@@ -135,6 +135,28 @@ async def test_explain_executes_the_user_sql_without_rewriting() -> None:
         result = await session.execute_explain(ExplainRequest(sql=SqlInput.inline(sql), analyze=True))
 
     assert result.rows[0].values == ("plan",)
+    assert cursor.executed == [(sql, ())]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sql", "expected_format"),
+    [
+        ("EXPLAIN SELECT id FROM items", ExplainFormat.TRADITIONAL),
+        ("EXPLAIN FORMAT=JSON SELECT id FROM items", ExplainFormat.JSON),
+        ("EXPLAIN FORMAT=TREE SELECT id FROM items", ExplainFormat.TREE),
+        ("EXPLAIN ANALYZE SELECT id FROM items", ExplainFormat.TREE),
+    ],
+)
+async def test_explain_result_reports_the_detected_format(
+    sql: str,
+    expected_format: ExplainFormat,
+) -> None:
+    cursor = FakeCursor({sql: (("plan",),)})
+    async with MySqlSession(connection_config(), FakeFactory(FakeConnection(cursor))) as session:
+        result = await session.execute_explain(ExplainRequest(sql=SqlInput.inline(sql)))
+
+    assert result.format is expected_format
     assert cursor.executed == [(sql, ())]
 
 

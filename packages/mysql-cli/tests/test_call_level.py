@@ -6,8 +6,8 @@ import json
 from typing import TYPE_CHECKING
 
 import mysql_cli.composition as composition
+from db_cli_kit.secrets import SecretStore
 from mysql_cli.adapters.profile_store import JsonProfileStore
-from mysql_cli.ports.secret_store import SecretStore
 from mysql_cli.presentation.click.app import main
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     import pytest
 
-    from mysql_cli.domain.profile import ProfileName
+    from db_cli_kit.profiles import ProfileName
 
 
 def test_main_parses_non_sql_command_without_database_access(capsys: pytest.CaptureFixture[str]) -> None:
@@ -62,7 +62,12 @@ def test_profile_list_uses_cli_lock_wait_policy(
 def test_profile_description_set_clear_and_json_output(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
+    observed_services: list[str] = []
+
     class MemorySecrets(SecretStore):
+        def __init__(self, service: str) -> None:
+            observed_services.append(service)
+
         def get(self, name: ProfileName) -> str | None:
             del name
             return None
@@ -97,6 +102,7 @@ def test_profile_description_set_clear_and_json_output(
         )
         == 0
     )
+    assert observed_services == [composition.KEYRING_SERVICE_NAME]
     created = json.loads(capsys.readouterr().out)
     assert created["data"]["profile"]["description"] == "read-only test database"
 

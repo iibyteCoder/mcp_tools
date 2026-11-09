@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from db_cli_kit.json_codec import encode_json_document
 from mysql_cli.application.errors import CliFailure
 from mysql_cli.application.profile import ProfileServiceError
 from mysql_cli.application.results import DiagnosticMetadata, ErrorBody, ErrorEnvelope, SuccessEnvelope
@@ -20,7 +21,6 @@ from mysql_cli.presentation.click.failures import (
     profile_service_failure,
     profile_store_failure,
 )
-from mysql_cli.shared.json_codec import encode_json_document
 from mysql_client import ClientError
 
 if TYPE_CHECKING:

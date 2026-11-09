@@ -16,7 +16,7 @@ from mysql_client import TransactionAction
 if TYPE_CHECKING:
     import click
 
-    from mysql_cli.domain.profile import ProfileName
+    from db_cli_kit.profiles import ProfileName
 
 
 def runtime(ctx: click.Context) -> CliRuntime:
@@ -52,6 +52,7 @@ def sql_request(
     iterations: int | None = None,
     warmup_iterations: int | None = None,
     transaction: TransactionAction = TransactionAction.COMMIT,
+    explain_analyze: bool = False,
     timeout_seconds: float | None = None,
 ) -> CommandRequest:
     return CommandRequest(
@@ -65,6 +66,7 @@ def sql_request(
         sql_iterations=iterations,
         sql_warmup_iterations=warmup_iterations,
         sql_transaction=transaction,
+        sql_explain_analyze=explain_analyze,
         sql_timeout_seconds=timeout_seconds,
     )
 

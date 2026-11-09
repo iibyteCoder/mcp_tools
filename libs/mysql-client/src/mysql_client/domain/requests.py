@@ -9,6 +9,7 @@ from mysql_client.domain.enums import (
     ExplainFormat,
     InputSource,
     InspectionCommand,
+    ServerMetricKind,
     SqlReadEffect,
     SqlStatementType,
     TransactionAction,
@@ -54,6 +55,7 @@ class ParsedSql:
     is_write: bool
     requires_explicit_transaction: bool
     is_explain_analyze: bool = False
+    explain_format: ExplainFormat | None = None
     read_effect: SqlReadEffect = SqlReadEffect.NONE
 
     def __post_init__(self) -> None:
@@ -67,6 +69,12 @@ class ParsedSql:
             raise ValueError("ParsedSql 必须明确表示只读或写入语句")
         if self.is_explain_analyze and self.statement_type is not SqlStatementType.EXPLAIN:
             raise ValueError("只有 EXPLAIN 语句可以标记为 ANALYZE")
+        if self.explain_format is not None and self.statement_type is not SqlStatementType.EXPLAIN:
+            raise ValueError("只有 EXPLAIN 语句可以携带执行计划格式")
+        if self.statement_type is SqlStatementType.EXPLAIN and self.explain_format is None:
+            raise ValueError("EXPLAIN 语句必须携带执行计划格式")
+        if self.is_explain_analyze and self.explain_format is not ExplainFormat.TREE:
+            raise ValueError("EXPLAIN ANALYZE 必须使用 TREE 格式")
         if not self.is_read_only and self.read_effect is not SqlReadEffect.NONE:
             raise ValueError("只有读取语句可以携带读取副作用分类")
 
@@ -160,6 +168,19 @@ class CompareRequest:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AnalyzeTableRequest:
+    """Request for one MySQL ``ANALYZE TABLE`` maintenance statement."""
+
+    table: TableName
+    database: DatabaseName | None = None
+    statement_timeout_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.statement_timeout_seconds is not None and self.statement_timeout_seconds <= 0:
+            raise ValueError("语句超时必须大于 0")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ExecutionPolicyDefaults:
     """Typed default limits for client execution, independent of CLI policy."""
 
@@ -212,6 +233,32 @@ class ServerCapabilitiesRequest:
     def __post_init__(self) -> None:
         if self.command is not InspectionCommand.SERVER_CAPABILITIES:
             raise ValueError("server capabilities 请求必须使用 SERVER_CAPABILITIES")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ServerMetricsRequest:
+    """Request for one kind of read-only server metric collection."""
+
+    kind: ServerMetricKind
+    filter_text: str | None = None
+    all: bool = False
+
+    def __post_init__(self) -> None:
+        if self.filter_text is not None:
+            if self.all:
+                raise ValueError("server metrics 过滤和全量选项不能同时使用")
+            normalized = self.filter_text.strip()
+            if not normalized:
+                raise ValueError("server metrics 过滤条件不能为空")
+            if normalized != self.filter_text:
+                object.__setattr__(self, "filter_text", normalized)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ServerProcessesRequest:
+    """Request for read-only process and thread facts."""
+
+    include_sql: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -279,6 +326,8 @@ class SchemaStatsRequest:
 InspectionRequest: TypeAlias = (
     ServerInspectRequest
     | ServerCapabilitiesRequest
+    | ServerMetricsRequest
+    | ServerProcessesRequest
     | SchemaDatabasesRequest
     | SchemaTablesRequest
     | SchemaDescribeRequest
@@ -287,4 +336,12 @@ InspectionRequest: TypeAlias = (
 )
 
 
-Request: TypeAlias = ReadRequest | WriteRequest | ExplainRequest | BenchmarkRequest | CompareRequest | InspectionRequest
+Request: TypeAlias = (
+    ReadRequest
+    | WriteRequest
+    | ExplainRequest
+    | BenchmarkRequest
+    | CompareRequest
+    | AnalyzeTableRequest
+    | InspectionRequest
+)

@@ -12,7 +12,6 @@ PROFILE_REGISTRY_VERSION: Final[int] = 1
 PROFILE_REGISTRY_FILE_NAME: Final[str] = "connections.json"
 PROFILE_REGISTRY_DIRECTORY: Final[str] = "db-cli"
 PASSWORD_SERVICE_NAME: Final[str] = "db-redis"
-REDIS_CLI_SKILL_PATH: Final[str] = "skills/redis-cli/SKILL.md"
 DEFAULT_PREVIEW_BYTE_LIMIT: Final[int] = 256
 DEFAULT_SCAN_LIMIT: Final[int] = 20
 MAX_SCAN_LIMIT: Final[int] = 10_000
@@ -31,5 +30,4 @@ __all__ = [
     "PROFILE_REGISTRY_DIRECTORY",
     "PROFILE_REGISTRY_FILE_NAME",
     "PROFILE_REGISTRY_VERSION",
-    "REDIS_CLI_SKILL_PATH",
 ]

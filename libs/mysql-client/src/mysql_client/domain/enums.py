@@ -140,11 +140,21 @@ class InspectionCommand(str, Enum):
 
     SERVER_INSPECT = "server_inspect"
     SERVER_CAPABILITIES = "server_capabilities"
+    SERVER_VARIABLES = "server_variables"
+    SERVER_STATUS = "server_status"
+    SERVER_PROCESSES = "server_processes"
     SCHEMA_DATABASES = "schema_databases"
     SCHEMA_TABLES = "schema_tables"
     SCHEMA_DESCRIBE = "schema_describe"
     SCHEMA_INDEXES = "schema_indexes"
     SCHEMA_STATS = "schema_stats"
+
+
+class ServerMetricKind(str, Enum):
+    """The MySQL server metric source requested by one inspection."""
+
+    VARIABLES = "variables"
+    STATUS = "status"
 
 
 class InputSource(str, Enum):

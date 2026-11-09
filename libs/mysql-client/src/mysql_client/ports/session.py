@@ -8,6 +8,7 @@ from mysql_client.domain.enums import CancellationReason
 
 if TYPE_CHECKING:
     from mysql_client.domain.requests import (
+        AnalyzeTableRequest,
         BenchmarkRequest,
         CompareRequest,
         ExplainRequest,
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
         WriteRequest,
     )
     from mysql_client.domain.results import (
+        AnalyzeTableResult,
         BenchmarkResult,
         CompareResult,
         ExplainResult,
@@ -55,6 +57,9 @@ class QuerySession(Protocol):
 
     async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
         """Execute one trusted, read-only server or schema inspection."""
+
+    async def execute_analyze(self, request: AnalyzeTableRequest) -> AnalyzeTableResult:
+        """Execute one ``ANALYZE TABLE`` maintenance statement."""
 
 
 class CancellationController(Protocol):

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
-import re
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
+from typing import TYPE_CHECKING
 
+from db_cli_kit.profiles import DirectoryBinding, ProfileName, normalize_directory
 from mysql_client.domain.configuration import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_MYSQL_CHARSET,
@@ -15,23 +14,8 @@ from mysql_client.domain.configuration import (
     DEFAULT_READ_TIMEOUT_SECONDS,
 )
 
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ProfileName:
-    """Validated, immutable profile identifier."""
-
-    _PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-    value: str
-
-    def __post_init__(self) -> None:
-        if not self._PATTERN.fullmatch(self.value):
-            raise ValueError("profile name must contain 1-64 letters, numbers, '.', '_' or '-'")
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return f"ProfileName(value={self.value!r})"
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ProfileSelectionSource(str, Enum):
@@ -123,17 +107,6 @@ class ProfileSettingsPatch:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class DirectoryBinding:
-    """A normalized directory-to-profile association."""
-
-    path: Path
-    profile: ProfileName
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "path", normalize_directory(self.path))
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class ProfileRecord:
     """A profile record whose password is intentionally absent."""
 
@@ -201,15 +174,7 @@ class ProfileSetRequest:
             raise ValueError("description and clear_description cannot both be supplied")
 
 
-def normalize_directory(path: Path) -> Path:
-    """Normalize a binding path without requiring it to exist."""
-
-    return Path(os.path.normcase(str(path.expanduser().resolve(strict=False))))
-
-
 __all__ = [
-    "DirectoryBinding",
-    "ProfileName",
     "ProfileRecord",
     "ProfileRegistry",
     "ProfileSelection",
@@ -218,5 +183,4 @@ __all__ = [
     "ProfileSettings",
     "ProfileSettingsPatch",
     "RegistryErrorCode",
-    "normalize_directory",
 ]

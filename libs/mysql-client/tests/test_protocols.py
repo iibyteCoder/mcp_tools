@@ -6,6 +6,7 @@ from mysql_client.domain.enums import CancellationReason, ExplainFormat
 
 if TYPE_CHECKING:
     from mysql_client.domain.requests import (
+        AnalyzeTableRequest,
         BenchmarkRequest,
         CompareRequest,
         ExplainRequest,
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
         WriteRequest,
     )
     from mysql_client.domain.results import (
+        AnalyzeTableResult,
         BenchmarkResult,
         CompareResult,
         ExplainResult,
@@ -46,6 +48,10 @@ class FakeQuerySession:
         raise NotImplementedError
 
     async def execute_inspection(self, request: InspectionRequest) -> InspectionResult:
+        del request
+        raise NotImplementedError
+
+    async def execute_analyze(self, request: AnalyzeTableRequest) -> AnalyzeTableResult:
         del request
         raise NotImplementedError
 

@@ -20,9 +20,9 @@ from redis_cli.cli_support import (
     runtime,
 )
 from redis_cli.commands import connection, hash, key, list_group, profile, server, set_group, string, zset
-from redis_cli.constants import REDIS_CLI_SKILL_PATH
 from redis_cli.domain import ConnectionOverrides, ProfileName
 from redis_cli.rendering import emit_success
+from redis_cli.skill_paths import resolve_redis_cli_skill_path
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -99,9 +99,9 @@ def skill() -> None:
 
 @skill.command("path")
 def skill_path() -> None:
-    """Print the repository skill document path."""
+    """Print the global Codex Skill document path."""
 
-    emit_success(None, {"path": REDIS_CLI_SKILL_PATH})
+    emit_success(None, {"path": str(resolve_redis_cli_skill_path())})
 
 
 cli.add_command(connection)

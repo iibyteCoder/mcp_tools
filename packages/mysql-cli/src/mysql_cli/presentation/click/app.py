@@ -17,7 +17,7 @@ from mysql_cli.presentation.click.types import PROFILE_NAME
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mysql_cli.domain.profile import ProfileName
+    from db_cli_kit.profiles import ProfileName
 
 
 @click.group(

@@ -15,7 +15,7 @@ from mysql_cli.presentation.click.types import PATH, POSITIVE_FLOAT, PROFILE_NAM
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_cli.domain.profile import ProfileName
+    from db_cli_kit.profiles import ProfileName
 
 
 @click.group()

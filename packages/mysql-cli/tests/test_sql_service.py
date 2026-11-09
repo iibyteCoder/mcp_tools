@@ -5,15 +5,25 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from db_cli_kit.json_codec import encode_json_document
+from db_cli_kit.profiles import ProfileName
+from db_cli_kit.secrets import SecretStore
 from mysql_cli.adapters.profile_store import JsonProfileStore
 from mysql_cli.application.input import load_inputs
 from mysql_cli.application.profile import ProfileService
 from mysql_cli.application.sql import SqlExecutionService
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
-from mysql_cli.domain.profile import ProfileName, ProfileSetRequest, ProfileSettingsPatch
-from mysql_cli.ports.secret_store import SecretStore
-from mysql_cli.shared.json_codec import encode_json_document
-from mysql_client import DriverColumn, DriverConnection, DriverCursor, MySqlConnectionConfig, TransactionAction
+from mysql_cli.domain.profile import ProfileSetRequest, ProfileSettingsPatch
+from mysql_client import (
+    DriverColumn,
+    DriverConnection,
+    DriverCursor,
+    ExplainFormat,
+    ExplainResult,
+    MySqlConnectionConfig,
+    SqlStatementType,
+    TransactionAction,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -158,6 +168,29 @@ async def test_sql_write_rollback_preserves_outcome_in_json(tmp_path: Path) -> N
     assert connection.commit_count == 0
     assert connection.rollback_count == 1
     assert '"outcome":"rolled_back"' in document
+
+
+@pytest.mark.asyncio
+async def test_sql_explain_analyze_sends_wrapped_select_and_reports_tree(tmp_path: Path) -> None:
+    request = CommandRequest(
+        group=CommandGroup.SQL,
+        action=CommandAction.EXPLAIN,
+        selected_profile=ProfileName(value="dev"),
+        sql_input=SqlInputSpec.inline("SELECT 1"),
+        sql_explain_analyze=True,
+    )
+    inputs = load_inputs(request, stdin_text=None)
+    cursor = SqlCursor()
+    connection = SqlConnection(cursor)
+
+    data = await SqlExecutionService(make_profiles(tmp_path), SqlFactory(connection)).execute(request, inputs)
+
+    assert isinstance(data.result, ExplainResult)
+    assert cursor.executed == [("EXPLAIN ANALYZE SELECT 1", ())]
+    assert data.result.format is ExplainFormat.TREE
+    assert data.result.metadata.statement_type is SqlStatementType.EXPLAIN
+    assert connection.commit_count == 0
+    assert connection.rollback_count == 0
 
 
 def test_sql_routes_define_explicit_execution_parameters() -> None:

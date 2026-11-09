@@ -7,6 +7,7 @@ from mysql_client.domain.requests import (
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
+    ParsedSql,
     ReadRequest,
     SqlInput,
 )
@@ -17,6 +18,7 @@ from mysql_client.domain.results import (
     QueryResult,
     TargetMetadata,
 )
+from mysql_client.domain.values import SqlText
 
 
 def test_sql_input_preserves_source_without_io() -> None:
@@ -91,3 +93,47 @@ def test_policy_defaults_are_centralized_and_validated() -> None:
 def test_enum_values_are_stable() -> None:
     assert ExplainFormat.JSON.value == "json"
     assert SqlInput.inline("SELECT 1").source is InputSource.INLINE
+
+
+def test_parsed_sql_enforces_explain_format_invariants() -> None:
+    explain = ParsedSql(
+        original_sql=SqlText("EXPLAIN SELECT 1"),
+        normalized_sql=SqlText("EXPLAIN SELECT 1"),
+        statement_type=SqlStatementType.EXPLAIN,
+        is_read_only=True,
+        is_write=False,
+        requires_explicit_transaction=False,
+        explain_format=ExplainFormat.JSON,
+    )
+
+    assert explain.explain_format is ExplainFormat.JSON
+    with pytest.raises(ValueError, match="执行计划格式"):
+        ParsedSql(
+            original_sql=SqlText("SELECT 1"),
+            normalized_sql=SqlText("SELECT 1"),
+            statement_type=SqlStatementType.SELECT,
+            is_read_only=True,
+            is_write=False,
+            requires_explicit_transaction=False,
+            explain_format=ExplainFormat.JSON,
+        )
+    with pytest.raises(ValueError, match="必须携带执行计划格式"):
+        ParsedSql(
+            original_sql=SqlText("EXPLAIN SELECT 1"),
+            normalized_sql=SqlText("EXPLAIN SELECT 1"),
+            statement_type=SqlStatementType.EXPLAIN,
+            is_read_only=True,
+            is_write=False,
+            requires_explicit_transaction=False,
+        )
+    with pytest.raises(ValueError, match="TREE"):
+        ParsedSql(
+            original_sql=SqlText("EXPLAIN ANALYZE SELECT 1"),
+            normalized_sql=SqlText("EXPLAIN ANALYZE SELECT 1"),
+            statement_type=SqlStatementType.EXPLAIN,
+            is_read_only=True,
+            is_write=False,
+            requires_explicit_transaction=False,
+            is_explain_analyze=True,
+            explain_format=ExplainFormat.JSON,
+        )

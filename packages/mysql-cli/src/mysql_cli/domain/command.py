@@ -11,7 +11,8 @@ from mysql_client.domain.enums import TransactionAction
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mysql_cli.domain.profile import ProfileName, ProfileSettingsPatch
+    from db_cli_kit.profiles import ProfileName
+    from mysql_cli.domain.profile import ProfileSettingsPatch
     from mysql_client.domain.values import DatabaseName, TableName
 
 
@@ -37,11 +38,15 @@ class CommandAction(str, Enum):
     REMOVE = "remove"
     INSPECT = "inspect"
     CAPABILITIES = "capabilities"
+    VARIABLES = "variables"
+    STATUS = "status"
+    PROCESSES = "processes"
     DATABASES = "databases"
     TABLES = "tables"
     DESCRIBE = "describe"
     INDEXES = "indexes"
     STATS = "stats"
+    ANALYZE = "analyze"
     READ = "read"
     WRITE = "write"
     EXPLAIN = "explain"
@@ -205,6 +210,7 @@ class CommandRequest:
     sql_iterations: int | None = None
     sql_warmup_iterations: int | None = None
     sql_transaction: TransactionAction = TransactionAction.COMMIT
+    sql_explain_analyze: bool = False
     compare_left_sql_input: SqlInputSpec | None = None
     compare_right_sql_input: SqlInputSpec | None = None
     compare_left_params_file: Path | None = None
@@ -222,3 +228,7 @@ class CommandRequest:
     profile_clear_password: bool = False
     schema_database: DatabaseName | None = None
     schema_table: TableName | None = None
+    schema_timeout_seconds: float | None = None
+    server_filter_text: str | None = None
+    server_all: bool = False
+    server_include_sql: bool = False

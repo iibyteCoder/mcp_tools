@@ -28,6 +28,7 @@ from mysql_client.domain.errors import (
     WriteExecutionError,
 )
 from mysql_client.domain.requests import (
+    AnalyzeTableRequest,
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
@@ -38,6 +39,7 @@ from mysql_client.domain.requests import (
     WriteRequest,
 )
 from mysql_client.domain.results import (
+    AnalyzeTableResult,
     BenchmarkResult,
     CompareResult,
     ExecutionMetadata,
@@ -48,6 +50,7 @@ from mysql_client.domain.results import (
     WriteResult,
 )
 from mysql_client.execution.compare import compare_results
+from mysql_client.execution.maintenance import analyze_table_result
 from mysql_client.execution.read import ReadExecutor
 from mysql_client.execution.write import WriteExecutor
 from mysql_client.ports.driver import (
@@ -56,6 +59,7 @@ from mysql_client.ports.driver import (
     driver_failure_from_exception,
 )
 from mysql_client.sql.inspection import build_inspection_query
+from mysql_client.sql.maintenance import build_analyze_table_sql
 from mysql_client.sql.parser import MySqlSqlParser
 from mysql_client.sql.policy import validate_execution_policy
 
@@ -263,8 +267,9 @@ class MySqlSession:
             statement_type=SqlStatementType.EXPLAIN,
         )
         result = await self._execute_read_request(read_request)
+        explain_format = parsed.explain_format if parsed.explain_format is not None else request.format
         return ExplainResult(
-            format=request.format,
+            format=explain_format,
             columns=result.columns,
             rows=result.rows,
             metadata=result.metadata,
@@ -340,6 +345,18 @@ class MySqlSession:
             )
         )
         return InspectionResult(command=definition.command, query=result)
+
+    async def execute_analyze(self, request: AnalyzeTableRequest) -> AnalyzeTableResult:
+        """Execute ``ANALYZE TABLE`` without starting a caller-visible transaction."""
+
+        query = await self._execute_read_request(
+            ReadRequest(
+                sql=SqlInput.inline(build_analyze_table_sql(request)),
+                statement_timeout_seconds=request.statement_timeout_seconds,
+                statement_type=SqlStatementType.DDL,
+            )
+        )
+        return analyze_table_result(query)
 
     async def execute_compare(self, request: CompareRequest) -> CompareResult:
         left_parsed = self._parser.parse(request.left_sql)

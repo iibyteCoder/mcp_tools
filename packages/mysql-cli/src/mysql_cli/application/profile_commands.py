@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING
 
 from mysql_cli.application.results import BindingView, ProfileCommandData, ProfileView
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
-from mysql_cli.domain.profile import DirectoryBinding, ProfileName, ProfileRecord, ProfileSetRequest
+from mysql_cli.domain.profile import ProfileRecord, ProfileSetRequest
 
 if TYPE_CHECKING:
+    from db_cli_kit.profiles import DirectoryBinding, ProfileName
     from mysql_cli.application.profile import ProfileService
 
 

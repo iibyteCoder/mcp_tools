@@ -106,6 +106,15 @@ def sql_write(
 @sql.command("explain")
 @_sql_input_options
 @click.option("--params-file", type=PATH)
+@click.option(
+    "--analyze",
+    "explain_analyze",
+    is_flag=True,
+    help=(
+        "execute the SELECT/WITH query with EXPLAIN ANALYZE (MySQL 8.0.18+); "
+        "supply the raw query without EXPLAIN"
+    ),
+)
 @click.option("--timeout", "timeout_seconds", type=POSITIVE_FLOAT)
 @click.pass_context
 def sql_explain(
@@ -113,9 +122,15 @@ def sql_explain(
     sql_text: str | None,
     sql_file: Path | None,
     params_file: Path | None,
+    explain_analyze: bool,
     timeout_seconds: float | None,
 ) -> None:
-    """Execute one EXPLAIN statement exactly as supplied."""
+    """Report a plan, or execute a SELECT/WITH query with --analyze.
+
+    Without --analyze, one EXPLAIN statement is sent exactly as supplied and the
+    explained query is not executed. With --analyze, the supplied SELECT/WITH
+    query is executed by the server through EXPLAIN ANALYZE (MySQL 8.0.18+).
+    """
 
     execute(
         ctx,
@@ -125,6 +140,7 @@ def sql_explain(
             sql_text=sql_text,
             sql_file=sql_file,
             params_file=params_file,
+            explain_analyze=explain_analyze,
             timeout_seconds=timeout_seconds,
         ),
     )

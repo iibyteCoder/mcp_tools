@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         ParameterKind,
     )
     from mysql_client import (
+        AnalyzeTableResult,
         BenchmarkResult,
         CompareResult,
         ComparisonDifference,
@@ -128,6 +129,17 @@ class InspectionCommandData:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class SchemaAnalyzeCommandData:
+    """Successful output for one ``ANALYZE TABLE`` maintenance command."""
+
+    status: CommandStatus
+    command_group: CommandGroup
+    action: CommandAction
+    profile: str
+    result: AnalyzeTableResult
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SqlCommandData:
     """Successful output for one executed SQL command."""
 
@@ -143,7 +155,7 @@ class SuccessEnvelope:
     """Top-level success envelope."""
 
     ok: bool
-    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SqlCommandData
+    data: CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SchemaAnalyzeCommandData | SqlCommandData
     meta: DiagnosticMetadata
 
 

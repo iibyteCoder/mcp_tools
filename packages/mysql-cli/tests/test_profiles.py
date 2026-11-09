@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 import pytest
 from filelock import FileLock
 
+from db_cli_kit.profiles import DirectoryBinding, ProfileName, normalize_directory
+from db_cli_kit.secrets import SecretStore
 from mysql_cli.adapters.profile_store import JsonProfileStore
 from mysql_cli.application.profile import (
     MySqlSessionValidator,
@@ -18,13 +20,14 @@ from mysql_cli.application.profile import (
 )
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, SqlInputSpec
 from mysql_cli.domain.profile import (
-    ProfileName,
+    ProfileRecord,
     ProfileRegistry,
     ProfileSetRequest,
+    ProfileSettings,
     ProfileSettingsPatch,
+    RegistryErrorCode,
 )
 from mysql_cli.ports.profile_store import ProfileStoreError
-from mysql_cli.ports.secret_store import SecretStore
 
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
@@ -185,6 +188,58 @@ def test_legacy_profile_without_description_reads_as_empty_value(tmp_path: Path)
     assert profile.description is None
 
 
+def test_registry_round_trip_keeps_schema_and_version(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    store = JsonProfileStore(path)
+    name = ProfileName(value="dev")
+    registry = ProfileRegistry(
+        profiles=(
+            ProfileRecord(
+                name=name,
+                settings=ProfileSettings(
+                    host="db.example",
+                    port=3307,
+                    user="alice",
+                    database="app",
+                    charset="utf8mb4",
+                    connect_timeout=3.0,
+                    read_timeout=45.0,
+                ),
+                description="read-only test database",
+                password_present=True,
+            ),
+        ),
+        bindings=(DirectoryBinding(path=tmp_path / "project", profile=name),),
+    )
+
+    store.write(registry)
+
+    assert store.read() == registry
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "schema": "db-mysql.profile-registry",
+        "version": 1,
+        "profiles": [
+            {
+                "name": "dev",
+                "settings": {
+                    "host": "db.example",
+                    "port": 3307,
+                    "user": "alice",
+                    "database": "app",
+                    "charset": "utf8mb4",
+                    "connect_timeout": 3.0,
+                    "read_timeout": 45.0,
+                },
+                "description": "read-only test database",
+                "password_present": True,
+            }
+        ],
+        "bindings": [{"path": str(normalize_directory(tmp_path / "project")), "profile": "dev"}],
+    }
+    assert JsonProfileStore.SCHEMA == "db-mysql.profile-registry"
+    assert JsonProfileStore.VERSION == 1
+
+
 def test_set_never_changes_directory_bindings(tmp_path: Path) -> None:
     service, _, _, _ = make_service(tmp_path)
     service.set(profile_request())
@@ -317,6 +372,16 @@ def test_corrupt_and_unsupported_registry_are_typed(tmp_path: Path) -> None:
     assert unsupported.value.code.value == "profile_registry_version_unsupported"
 
 
+def test_registry_io_failure_maps_to_the_io_code(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    path.mkdir()
+
+    with pytest.raises(ProfileStoreError) as failure:
+        JsonProfileStore(path).read()
+
+    assert failure.value.code is RegistryErrorCode.IO
+
+
 def test_registry_lock_conflict_is_typed(tmp_path: Path) -> None:
     path = tmp_path / "profiles.json"
     store = JsonProfileStore(path)
@@ -326,6 +391,19 @@ def test_registry_lock_conflict_is_typed(tmp_path: Path) -> None:
         with pytest.raises(ProfileStoreError) as locked:
             store.read()
         assert locked.value.code.value == "profile_registry_locked"
+    finally:
+        lock.release()
+
+
+def test_update_uses_the_single_registry_lock(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.json"
+    store = JsonProfileStore(path)
+    lock = FileLock(str(store.lock_path))
+    lock.acquire()
+    try:
+        with pytest.raises(ProfileStoreError) as locked:
+            store.update(lambda registry: registry)
+        assert locked.value.code is RegistryErrorCode.LOCKED
     finally:
         lock.release()
 

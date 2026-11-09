@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mysql_client.domain.enums import SqlParseReason, SqlStatementType
+from mysql_client.domain.enums import ExplainFormat, SqlParseReason, SqlStatementType
 from mysql_client.domain.errors import SqlParseError, UnsupportedSqlError
 from mysql_client.domain.requests import SqlInput
 from mysql_client.domain.values import SqlText
@@ -84,13 +84,62 @@ def test_parser_classifies_supported_mysql_statements(
     assert parsed.is_write is not parsed.is_read_only
 
 
+@pytest.mark.parametrize(
+    ("sql", "explain_format"),
+    [
+        ("EXPLAIN SELECT 1", ExplainFormat.TRADITIONAL),
+        ("EXPLAIN FORMAT=TRADITIONAL SELECT 1", ExplainFormat.TRADITIONAL),
+        ("EXPLAIN FORMAT=JSON SELECT 1", ExplainFormat.JSON),
+        ("EXPLAIN FORMAT=TREE SELECT 1", ExplainFormat.TREE),
+        ("EXPLAIN ANALYZE SELECT 1", ExplainFormat.TREE),
+        ("EXPLAIN ANALYZE FORMAT=TREE SELECT 1", ExplainFormat.TREE),
+        ("SELECT 1", None),
+        ("SHOW TABLES", None),
+        ("DESCRIBE items", None),
+    ],
+)
+def test_parser_detects_explain_format(
+    parser: MySqlSqlParser,
+    sql: str,
+    explain_format: ExplainFormat | None,
+) -> None:
+    parsed = parser.parse(SqlText(sql))
+
+    assert parsed.explain_format is explain_format
+
+
 def test_parser_marks_explain_analyze_without_rewriting_it(
     parser: MySqlSqlParser,
 ) -> None:
     parsed = parser.parse(SqlText("EXPLAIN ANALYZE SELECT 1;"))
 
     assert parsed.is_explain_analyze is True
+    assert parsed.explain_format is ExplainFormat.TREE
     assert parsed.normalized_sql == "EXPLAIN ANALYZE SELECT 1"
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "EXPLAIN ANALYZE FORMAT=JSON SELECT 1",
+        "EXPLAIN ANALYZE FORMAT=TRADITIONAL SELECT 1",
+    ],
+)
+def test_parser_rejects_analyze_with_non_tree_format(
+    parser: MySqlSqlParser,
+    sql: str,
+) -> None:
+    with pytest.raises(UnsupportedSqlError) as error:
+        parser.parse(SqlText(sql))
+
+    assert "TREE" in str(error.value)
+
+
+def test_parser_rejects_unknown_explain_format(parser: MySqlSqlParser) -> None:
+    with pytest.raises(UnsupportedSqlError) as error:
+        parser.parse(SqlText("EXPLAIN FORMAT=BOGUS SELECT 1"))
+
+    assert "FORMAT" in str(error.value)
 
 
 @pytest.mark.parametrize(

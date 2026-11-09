@@ -21,6 +21,7 @@ from mysql_client.domain.enums import (
     InputSource,
     InspectionCommand,
     PolicyViolationReason,
+    ServerMetricKind,
     SqlParseReason,
     SqlReadEffect,
     SqlStatementType,
@@ -46,6 +47,7 @@ from mysql_client.domain.errors import (
     error_report_from_exception,
 )
 from mysql_client.domain.requests import (
+    AnalyzeTableRequest,
     BenchmarkRequest,
     CompareRequest,
     ExecutionPolicyDefaults,
@@ -61,10 +63,14 @@ from mysql_client.domain.requests import (
     SchemaTablesRequest,
     ServerCapabilitiesRequest,
     ServerInspectRequest,
+    ServerMetricsRequest,
+    ServerProcessesRequest,
     SqlInput,
     WriteRequest,
 )
 from mysql_client.domain.results import (
+    AnalyzeTableResult,
+    AnalyzeTableRow,
     BenchmarkResult,
     ColumnDefinition,
     CompareResult,
@@ -104,6 +110,7 @@ from mysql_client.ports.driver import (
 )
 from mysql_client.ports.session import CancellationController, QuerySession, SqlParser
 from mysql_client.sql.inspection import InspectionQueryDefinition, build_inspection_query
+from mysql_client.sql.maintenance import build_analyze_table_sql
 from mysql_client.sql.parser import MySqlSqlParser
 from mysql_client.sql.policy import ExecutionPolicyValidator, validate_execution_policy
 
@@ -113,6 +120,9 @@ __all__ = [
     "DEFAULT_MYSQL_PORT",
     "DEFAULT_READ_TIMEOUT_SECONDS",
     "AiomysqlDriverFactory",
+    "AnalyzeTableRequest",
+    "AnalyzeTableResult",
+    "AnalyzeTableRow",
     "AuthenticationError",
     "BenchmarkRequest",
     "BenchmarkResult",
@@ -186,6 +196,9 @@ __all__ = [
     "SecretValue",
     "ServerCapabilitiesRequest",
     "ServerInspectRequest",
+    "ServerMetricKind",
+    "ServerMetricsRequest",
+    "ServerProcessesRequest",
     "SessionState",
     "SqlInput",
     "SqlParseError",
@@ -202,6 +215,7 @@ __all__ = [
     "WriteOutcome",
     "WriteRequest",
     "WriteResult",
+    "build_analyze_table_sql",
     "build_inspection_query",
     "error_report_from_exception",
     "validate_execution_policy",

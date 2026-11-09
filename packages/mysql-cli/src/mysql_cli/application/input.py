@@ -5,6 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from db_cli_kit.json_codec import (
+    JsonArray,
+    JsonDocumentError,
+    JsonObject,
+    is_json_array,
+    is_json_object,
+    parse_json_document,
+)
 from mysql_cli.application.errors import CliFailure, ErrorDetail
 from mysql_cli.domain.command import (
     CommandRequest,
@@ -14,14 +22,6 @@ from mysql_cli.domain.command import (
     InputSource,
     ParameterKind,
     SqlInputSpec,
-)
-from mysql_cli.shared.json_codec import (
-    JsonArray,
-    JsonDocumentError,
-    JsonObject,
-    is_json_array,
-    is_json_object,
-    parse_json_document,
 )
 from mysql_client import DatabaseParameters, DatabaseValue, SqlInput
 

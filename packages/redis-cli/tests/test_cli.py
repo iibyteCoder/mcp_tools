@@ -6,6 +6,7 @@ from click.testing import CliRunner
 from redis_cli.application import RedisApplication
 from redis_cli.cli import CliRuntime, cli, create_runtime
 from redis_cli.service import ProfileService
+from redis_cli.skill_paths import resolve_redis_cli_skill_path
 from redis_cli.store import JsonProfileStore
 
 from .test_application import FakeFactory, FakeRedis, MemorySecrets
@@ -57,6 +58,22 @@ def test_flushdb_requires_explicit_confirmation(tmp_path: Path) -> None:
         "code": "INVALID_ARGUMENT",
         "message": "flushdb requires --confirm",
     }
+
+
+def test_skill_path_resolves_global_codex_home(tmp_path: Path, monkeypatch) -> None:
+    codex_home = tmp_path / "codex"
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    exit_code, document = invoke_cli(tmp_path, "--json", "skill", "path")
+
+    assert exit_code == 0
+    assert document["data"] == {"path": str(resolve_redis_cli_skill_path())}
+
+
+def test_skill_path_uses_default_codex_home(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+
+    assert resolve_redis_cli_skill_path(user_home=tmp_path) == tmp_path / ".codex" / "skills" / "redis-cli" / "SKILL.md"
 
 
 def test_profile_commands_cover_create_select_bind_clear_rename_validate_remove(tmp_path: Path) -> None:

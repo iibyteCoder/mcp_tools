@@ -15,6 +15,9 @@ from mysql_client import (
     SchemaTablesRequest,
     ServerCapabilitiesRequest,
     ServerInspectRequest,
+    ServerMetricKind,
+    ServerMetricsRequest,
+    ServerProcessesRequest,
     TableName,
 )
 
@@ -59,6 +62,19 @@ def _inspection_request(request: CommandRequest) -> InspectionRequest:
         return ServerInspectRequest()
     if request.group is CommandGroup.SERVER and request.action is CommandAction.CAPABILITIES:
         return ServerCapabilitiesRequest()
+    if request.group is CommandGroup.SERVER and request.action in {CommandAction.VARIABLES, CommandAction.STATUS}:
+        kind = (
+            ServerMetricKind.VARIABLES
+            if request.action is CommandAction.VARIABLES
+            else ServerMetricKind.STATUS
+        )
+        return ServerMetricsRequest(
+            kind=kind,
+            filter_text=request.server_filter_text,
+            all=request.server_all,
+        )
+    if request.group is CommandGroup.SERVER and request.action is CommandAction.PROCESSES:
+        return ServerProcessesRequest(include_sql=request.server_include_sql)
     if request.group is not CommandGroup.SCHEMA:
         raise ValueError("不是 inspection 命令")
     if request.action is CommandAction.DATABASES:

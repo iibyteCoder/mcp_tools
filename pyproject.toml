@@ -1,11 +1,18 @@
 [project]
 name = "mysql-cli-workspace"
 version = "0.0.0"
-description = "MySQL CLI workspace"
+description = "Database CLI workspace"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]
-members = ["libs/mysql-client", "packages/mysql-cli", "packages/redis-cli"]
+members = [
+    "libs/db-cli-kit",
+    "libs/dm-client",
+    "libs/mysql-client",
+    "packages/dm-cli",
+    "packages/mysql-cli",
+    "packages/redis-cli",
+]
 
 [dependency-groups]
 dev = [
@@ -13,7 +20,23 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    "db-cli-kit",
+    "dm-cli",
+    "dm-client",
+    "mysql-cli",
+    "mysql-client",
+    "redis-cli",
 ]
+
+# Workspace package sources used by the root development group so that plain
+# `uv sync` installs every workspace package required by the documented gates.
+[tool.uv.sources]
+db-cli-kit = { workspace = true }
+dm-cli = { workspace = true }
+dm-client = { workspace = true }
+mysql-cli = { workspace = true }
+mysql-client = { workspace = true }
+redis-cli = { workspace = true }
 
 # Ruff - 代码格式化 + Lint + 导入排序
 # https://docs.astral.sh/ruff/
@@ -33,7 +56,7 @@ select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mysql_client", "mysql_cli"]
+known-first-party = ["db_cli_kit", "dm_cli", "dm_client", "mysql_client", "mysql_cli"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -50,6 +73,10 @@ markers = ["e2e: tests that exercise the CLI against a real Redis service"]
 
 [[tool.mypy.overrides]]
 module = ["aiomysql"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["dmPython"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

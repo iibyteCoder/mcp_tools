@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 if TYPE_CHECKING:
-    from mysql_cli.shared.json_codec import JsonObject, JsonValue
+    from db_cli_kit.json_codec import JsonObject, JsonValue
 
 
 @pytest.fixture
@@ -217,6 +217,67 @@ def test_benchmark_rejects_write_during_local_diagnostics(cli_environment: dict[
     assert error["code"] == "unsupported_sql"
 
 
+def test_sql_explain_analyze_is_reported_during_local_diagnostics(
+    cli_environment: dict[str, str],
+) -> None:
+    result = run_cli(cli_environment, "sql", "explain", "--analyze", "--sql", "SELECT 1")
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 0
+    assert result.stderr == ""
+    data = as_object(payload["data"])
+    sql = as_object(data["sql"])
+    assert sql["statement_type"] == "explain"
+    assert sql["read_only"] is True
+    assert sql["write"] is False
+    assert sql["explain_analyze"] is True
+    assert sql["text_length"] == len("EXPLAIN ANALYZE SELECT 1")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "UPDATE items SET id = 1",
+        "CREATE TABLE items (id INT)",
+        "SHOW TABLES",
+        "SELECT * FROM items FOR UPDATE",
+    ],
+)
+def test_sql_explain_analyze_rejects_non_select_queries(
+    cli_environment: dict[str, str],
+    sql: str,
+) -> None:
+    result = run_cli(cli_environment, "sql", "explain", "--analyze", "--sql", sql)
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 2
+    assert result.stderr == ""
+    error = as_object(payload["error"])
+    assert error["code"] == "unsupported_sql"
+
+
+@pytest.mark.parametrize("sql", ["EXPLAIN SELECT 1", "EXPLAIN ANALYZE SELECT 1"])
+def test_sql_explain_analyze_rejects_existing_explain(
+    cli_environment: dict[str, str],
+    sql: str,
+) -> None:
+    result = run_cli(cli_environment, "sql", "explain", "--analyze", "--sql", sql)
+
+    payload = decode_one_json(result.stdout)
+    assert result.returncode == 2
+    assert result.stderr == ""
+    error = as_object(payload["error"])
+    assert error["code"] == "invalid_argument"
+
+
+def test_sql_explain_help_lists_analyze(cli_environment: dict[str, str]) -> None:
+    result = run_cli(cli_environment, "sql", "explain", "--help")
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert "--analyze" in result.stdout
+
+
 @pytest.mark.parametrize(
     ("command", "sql"),
     [
@@ -312,3 +373,45 @@ def test_real_profile_read_only_commands_are_process_level(cli_environment: dict
             profile = as_object(data["profile"])
             assert "description" in profile
             assert "password" not in profile
+
+
+def test_real_profile_server_processes_hides_info_by_default(cli_environment: dict[str, str]) -> None:
+    profile_name = os.environ.get("DB_MYSQL_REAL_PROFILE")
+    if not profile_name:
+        pytest.skip("set DB_MYSQL_REAL_PROFILE to run the real server processes E2E")
+
+    expected_columns = ["id", "user", "host", "database", "command", "time_seconds", "state", "info"]
+    default_result = run_cli(cli_environment, "--json", "--profile", profile_name, "server", "processes")
+    default_payload = decode_one_json(default_result.stdout)
+    assert default_result.returncode == 0, default_payload
+    assert default_result.stderr == ""
+    assert default_payload["ok"] is True
+    default_data = as_object(default_payload["data"])
+    assert default_data["command_group"] == "server"
+    assert default_data["action"] == "processes"
+    default_query = as_object(as_object(default_data["result"])["query"])
+    assert [as_object(column)["name"] for column in as_array(default_query["columns"])] == expected_columns
+    default_rows = [as_array(as_object(row)["values"]) for row in as_array(default_query["rows"])]
+    assert default_rows
+    assert [row[0] for row in default_rows] == sorted(row[0] for row in default_rows)
+    assert all(row[7] is None for row in default_rows)
+
+    sql_result = run_cli(
+        cli_environment,
+        "--json",
+        "--profile",
+        profile_name,
+        "server",
+        "processes",
+        "--include-sql",
+    )
+    sql_payload = decode_one_json(sql_result.stdout)
+    assert sql_result.returncode == 0, sql_payload
+    assert sql_result.stderr == ""
+    assert sql_payload["ok"] is True
+    sql_query = as_object(as_object(as_object(sql_payload["data"])["result"])["query"])
+    assert [as_object(column)["name"] for column in as_array(sql_query["columns"])] == expected_columns
+    sql_rows = [as_array(as_object(row)["values"]) for row in as_array(sql_query["rows"])]
+    assert sql_rows
+    assert [row[0] for row in sql_rows] == sorted(row[0] for row in sql_rows)
+    assert any(row[7] is not None for row in sql_rows)

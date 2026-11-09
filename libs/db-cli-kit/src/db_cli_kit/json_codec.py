@@ -1,4 +1,4 @@
-"""Explicit JSON encoding and decoding for the CLI contract."""
+"""Explicit JSON encoding and decoding for the CLI contracts."""
 
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ def parse_json_document(text: str) -> JsonValue:
     try:
         loaded: object = cast("object", json.loads(text, parse_constant=_reject_constant))
     except (json.JSONDecodeError, ValueError) as exc:
-        raise JsonDocumentError("JSON 文档解析失败") from exc
+        raise JsonDocumentError("JSON document could not be parsed") from exc
     if not is_json_value(loaded):
-        raise JsonDocumentError("JSON 文档包含不支持的值")
+        raise JsonDocumentError("JSON document contains an unsupported value")
     return loaded
 
 
@@ -64,7 +64,7 @@ def encode_json_document(value: object) -> str:
 
 
 def _reject_constant(value: str) -> None:
-    raise ValueError(f"非标准 JSON 数字常量: {value}")
+    raise ValueError(f"non-standard JSON numeric constant: {value}")
 
 
 def _to_json_value(value: object) -> JsonValue:
@@ -81,10 +81,7 @@ def _to_json_value(value: object) -> JsonValue:
     if isinstance(value, bytes):
         return base64.b64encode(value).decode("ascii")
     if is_dataclass(value):
-        return {
-            field.name: _to_json_value(getattr(value, field.name))
-            for field in fields(value)
-        }
+        return {field.name: _to_json_value(getattr(value, field.name)) for field in fields(value)}
     if isinstance(value, (list, tuple)):
         return [_to_json_value(item) for item in value]
     if isinstance(value, dict):
@@ -94,4 +91,17 @@ def _to_json_value(value: object) -> JsonValue:
                 raise TypeError("JSON object keys must be strings")
             result[key] = _to_json_value(item)
         return result
-    raise TypeError(f"不支持 JSON 序列化类型: {type(value).__name__}")
+    raise TypeError(f"value cannot be encoded as JSON: {type(value).__name__}")
+
+
+__all__ = [
+    "JsonArray",
+    "JsonDocumentError",
+    "JsonObject",
+    "JsonValue",
+    "encode_json_document",
+    "is_json_array",
+    "is_json_object",
+    "is_json_value",
+    "parse_json_document",
+]

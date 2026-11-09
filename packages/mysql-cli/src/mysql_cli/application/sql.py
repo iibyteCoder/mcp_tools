@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeAlias
 
+from mysql_cli.application.explain import build_explain_analyze
 from mysql_cli.application.results import SqlCommandData
 from mysql_cli.domain.command import CommandAction, CommandGroup, CommandRequest, CommandStatus
 from mysql_client import (
@@ -86,10 +87,12 @@ class SqlExecutionService:
                 )
             )
         if request.action is CommandAction.EXPLAIN:
+            explain_sql = build_explain_analyze(sql).sql if request.sql_explain_analyze else sql
             return await session.execute_explain(
                 ExplainRequest(
-                    sql=sql,
+                    sql=explain_sql,
                     parameters=parameters,
+                    analyze=request.sql_explain_analyze,
                     statement_timeout_seconds=request.sql_timeout_seconds,
                 )
             )

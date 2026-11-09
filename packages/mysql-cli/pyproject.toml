@@ -5,9 +5,9 @@ description = "JSON-only MySQL command line foundation"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1.7,<9.0",
+    "db-cli-kit",
     "mysql-client",
     "filelock>=3.16.0",
-    "keyring>=25.6.0",
     "platformdirs>=4.3.0",
 ]
 
@@ -22,6 +22,7 @@ build-backend = "hatchling.build"
 packages = ["src/mysql_cli"]
 
 [tool.uv.sources]
+db-cli-kit = { workspace = true }
 mysql-client = { workspace = true }
 
 [tool.mypy]

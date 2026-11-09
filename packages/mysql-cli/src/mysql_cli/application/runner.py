@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
 from mysql_cli.application.errors import CliFailure, ErrorDetail
+from mysql_cli.application.explain import build_explain_analyze
 from mysql_cli.application.input import LoadedInputs, load_inputs
 from mysql_cli.application.profile_commands import execute_profile_command
 from mysql_cli.application.results import (
@@ -13,6 +14,7 @@ from mysql_cli.application.results import (
     InspectionCommandData,
     ParameterDiagnostic,
     ProfileCommandData,
+    SchemaAnalyzeCommandData,
     SqlCommandData,
     SqlDiagnostic,
 )
@@ -28,6 +30,7 @@ from mysql_cli.domain.command import (
     SqlInputSpec,
 )
 from mysql_client import (
+    ClientError,
     ExecutionPolicy,
     ExecutionPolicyError,
     MySqlSqlParser,
@@ -37,19 +40,34 @@ from mysql_client import (
     UnsupportedSqlError,
     validate_execution_policy,
 )
+from mysql_client import (
+    ErrorCode as ClientErrorCode,
+)
 
 if TYPE_CHECKING:
+    from db_cli_kit.profiles import ProfileName
     from mysql_cli.application.profile import ProfileService
-    from mysql_cli.domain.profile import ProfileName
 
 
-CommandData = CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SqlCommandData
+CommandData = (
+    CommandDiagnosticData
+    | ProfileCommandData
+    | InspectionCommandData
+    | SchemaAnalyzeCommandData
+    | SqlCommandData
+)
 
 
 class InspectionExecutor(Protocol):
     """Typed inspection service dependency used by command orchestration."""
 
     async def execute(self, request: CommandRequest) -> InspectionCommandData: ...
+
+
+class SchemaMaintenanceExecutor(Protocol):
+    """Typed schema maintenance service dependency used by command orchestration."""
+
+    async def execute(self, request: CommandRequest) -> SchemaAnalyzeCommandData: ...
 
 
 class SqlExecutor(Protocol):
@@ -64,6 +82,7 @@ class CliRuntime:
 
     profile_service: ProfileService
     inspection_service: InspectionExecutor | None = None
+    schema_maintenance_service: SchemaMaintenanceExecutor | None = None
     sql_service: SqlExecutor | None = None
     selected_profile: ProfileName | None = None
     request: CommandRequest | None = None
@@ -92,6 +111,10 @@ async def execute_request(runtime: CliRuntime, request: CommandRequest, *, stdin
 
     if request.group is CommandGroup.PROFILE:
         return await execute_profile_command(request, runtime.profile_service)
+    if request.group is CommandGroup.SCHEMA and request.action is CommandAction.ANALYZE:
+        if runtime.schema_maintenance_service is None:
+            raise RuntimeError("schema maintenance service is not configured")
+        return await runtime.schema_maintenance_service.execute(request)
     if request.group in {CommandGroup.SERVER, CommandGroup.SCHEMA}:
         if runtime.inspection_service is None:
             raise RuntimeError("inspection service is not configured")
@@ -115,12 +138,7 @@ def diagnose(request: CommandRequest, loaded: LoadedInputs) -> CommandDiagnostic
     if request.action is CommandAction.COMPARE:
         _validate_compare_inputs(request, loaded)
     elif loaded.sql is not None:
-        parsed = _parse_and_validate_sql(
-            loaded.sql,
-            policy=_policy_for_action(request.action),
-            input_spec=request.sql_input,
-            argument="--sql|--sql-file",
-        )
+        parsed = _diagnose_sql(request, loaded.sql)
         sql_diagnostic = SqlDiagnostic(
             source=request.sql_input.source if request.sql_input is not None else InputSource.INLINE,
             statement_type=parsed.statement_type,
@@ -177,6 +195,48 @@ def _validate_compare_inputs(request: CommandRequest, loaded: LoadedInputs) -> N
         policy=ExecutionPolicy.READ_ONLY,
         input_spec=request.compare_right_sql_input,
         argument="--right-sql|--right-sql-file",
+    )
+
+
+def _diagnose_sql(request: CommandRequest, sql: SqlInput) -> ParsedSql:
+    """Classify one SQL input, delegating explicit ANALYZE wrapping to one helper."""
+
+    if request.action is CommandAction.EXPLAIN and request.sql_explain_analyze:
+        try:
+            return build_explain_analyze(sql).parsed
+        except ClientError as exc:
+            raise _explain_analyze_failure(exc, request.sql_input) from exc
+    return _parse_and_validate_sql(
+        sql,
+        policy=_policy_for_action(request.action),
+        input_spec=request.sql_input,
+        argument="--sql|--sql-file",
+    )
+
+
+def _explain_analyze_failure(error: ClientError, input_spec: SqlInputSpec | None) -> CliFailure:
+    code: ErrorCode
+    error_type: DiagnosticErrorType
+    if error.code is ClientErrorCode.INVALID_SQL:
+        code = ErrorCode.INVALID_SQL
+        error_type = DiagnosticErrorType.SQL_PARSE
+    elif error.code is ClientErrorCode.INVALID_ARGUMENT:
+        code = ErrorCode.INVALID_ARGUMENT
+        error_type = DiagnosticErrorType.ARGUMENT_SYNTAX
+    elif error.code is ClientErrorCode.UNSUPPORTED_SQL:
+        code = ErrorCode.UNSUPPORTED_SQL
+        error_type = DiagnosticErrorType.POLICY_VIOLATION
+    else:
+        code = ErrorCode.INTERNAL_ERROR
+        error_type = DiagnosticErrorType.EXECUTION
+    source = input_spec.source if input_spec is not None else None
+    message = error.message if error.hint is None else f"{error.message}; {error.hint}"
+    return CliFailure(
+        code=code,
+        message=message,
+        retryable=False,
+        details=(ErrorDetail(error_type=error_type, argument="--analyze", source=source),),
+        exit_code=ExitCode.INVALID_ARGUMENT,
     )
 
 

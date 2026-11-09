@@ -1,18 +1,20 @@
 """Production dependency composition for the CLI application."""
 
 from collections.abc import Callable
-from typing import Protocol
+from typing import Final, Protocol
 
+from db_cli_kit.secrets import KeyringSecretStore, SecretStore
 from mysql_cli.adapters.profile_store import JsonProfileStore
-from mysql_cli.adapters.secret_store import KeyringSecretStore
 from mysql_cli.application.inspection import InspectionService
 from mysql_cli.application.profile import MySqlSessionValidator, ProfileService
 from mysql_cli.application.runner import CliRuntime
+from mysql_cli.application.schema_maintenance import SchemaMaintenanceService
 from mysql_cli.application.sql import SqlExecutionService
 from mysql_cli.ports.profile_store import ProfileStore
-from mysql_cli.ports.secret_store import SecretStore
 from mysql_client.adapters.aiomysql import AiomysqlDriverFactory
 from mysql_client.ports.driver import DriverFactory
+
+KEYRING_SERVICE_NAME: Final[str] = "db-mysql"
 
 
 class ProfileStoreFactory(Protocol):
@@ -30,7 +32,7 @@ def create_runtime(
     """Create one CLI dependency graph without contacting a database."""
 
     profile_factory = JsonProfileStore if profile_store_factory is None else profile_store_factory
-    secret_factory = KeyringSecretStore if secret_store_factory is None else secret_store_factory
+    secret_factory = _default_secret_store if secret_store_factory is None else secret_store_factory
     database_factory = driver_factory or AiomysqlDriverFactory()
     profiles = ProfileService(
         profile_factory(lock_timeout=JsonProfileStore.CLI_LOCK_TIMEOUT_SECONDS),
@@ -40,8 +42,13 @@ def create_runtime(
     return CliRuntime(
         profile_service=profiles,
         inspection_service=InspectionService(profiles, database_factory),
+        schema_maintenance_service=SchemaMaintenanceService(profiles, database_factory),
         sql_service=SqlExecutionService(profiles, database_factory),
     )
 
 
-__all__ = ["create_runtime"]
+def _default_secret_store() -> SecretStore:
+    return KeyringSecretStore(KEYRING_SERVICE_NAME)
+
+
+__all__ = ["KEYRING_SERVICE_NAME", "create_runtime"]

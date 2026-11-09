@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from mysql_cli.domain.profile import ProfileName
+from db_cli_kit.profiles import ProfileName
 from mysql_client import DatabaseName, TableName, TransactionAction
 
 

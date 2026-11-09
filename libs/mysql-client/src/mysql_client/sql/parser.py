@@ -9,12 +9,23 @@ from sqlglot import Expression, exp, parse
 from sqlglot.errors import ErrorLevel, SqlglotError
 from sqlglot.tokens import Token, Tokenizer, TokenType
 
-from mysql_client.domain.enums import SqlParseReason, SqlReadEffect, SqlSideEffectFunction, SqlStatementType
+from mysql_client.domain.enums import (
+    ExplainFormat,
+    SqlParseReason,
+    SqlReadEffect,
+    SqlSideEffectFunction,
+    SqlStatementType,
+)
 from mysql_client.domain.errors import SqlParseError, UnsupportedSqlError
 from mysql_client.domain.requests import ParsedSql, SqlInput
 from mysql_client.domain.values import SqlText
 
 SqlSource = SqlInput | SqlText
+
+_EXPLAIN_ANALYZE_STYLE = "ANALYZE"
+_EXPLAIN_FORMATS: dict[str, ExplainFormat] = {
+    explain_format.value.upper(): explain_format for explain_format in ExplainFormat
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +65,7 @@ class MySqlSqlParser:
         expression = self._parse_one(parser_sql)
         statement_type = self._statement_type(expression, stripped_sql)
         normalized_sql = self._without_terminal_delimiter(stripped_sql)
+        is_explain_analyze = self._is_explain_analyze(expression, statement_type)
         is_read_only = statement_type in {
             SqlStatementType.SELECT,
             SqlStatementType.SHOW,
@@ -73,7 +85,12 @@ class MySqlSqlParser:
             is_read_only=is_read_only,
             is_write=is_write,
             requires_explicit_transaction=is_write,
-            is_explain_analyze=self._is_explain_analyze(expression, statement_type),
+            is_explain_analyze=is_explain_analyze,
+            explain_format=self._explain_format(
+                expression,
+                statement_type,
+                is_analyze=is_explain_analyze,
+            ),
             read_effect=self._read_effect(expression, statement_type),
         )
 
@@ -180,7 +197,50 @@ class MySqlSqlParser:
     def _is_explain_analyze(expression: Expression, statement_type: SqlStatementType) -> bool:
         if statement_type is not SqlStatementType.EXPLAIN:
             return False
-        return str(expression.args.get("style", "")).upper() == "ANALYZE"
+        return str(expression.args.get("style", "")).upper() == _EXPLAIN_ANALYZE_STYLE
+
+    @staticmethod
+    def _explain_format(
+        expression: Expression,
+        statement_type: SqlStatementType,
+        *,
+        is_analyze: bool,
+    ) -> ExplainFormat | None:
+        if statement_type is not SqlStatementType.EXPLAIN:
+            return None
+        declared_format = MySqlSqlParser._declared_explain_format(expression)
+        if is_analyze:
+            if declared_format is not None and declared_format is not ExplainFormat.TREE:
+                raise UnsupportedSqlError(
+                    "EXPLAIN ANALYZE 仅支持 TREE 格式",
+                    hint="移除 FORMAT 子句或改用 FORMAT=TREE",
+                )
+            return ExplainFormat.TREE
+        return declared_format if declared_format is not None else ExplainFormat.TRADITIONAL
+
+    @staticmethod
+    def _declared_explain_format(expression: Expression) -> ExplainFormat | None:
+        property_expression: object = expression.args.get("format")
+        if property_expression is None:
+            return None
+        if not isinstance(property_expression, exp.FileFormatProperty):
+            raise UnsupportedSqlError("无法识别的 EXPLAIN FORMAT 子句")
+        value_expression: object = property_expression.this
+        if not isinstance(value_expression, exp.Var):
+            raise UnsupportedSqlError(
+                "EXPLAIN FORMAT 值必须是 TRADITIONAL、JSON 或 TREE",
+                hint="FORMAT 后直接写格式名, 不要加引号",
+            )
+        raw_value: object = value_expression.this
+        if not isinstance(raw_value, str):
+            raise UnsupportedSqlError("无法识别的 EXPLAIN FORMAT 值")
+        explain_format = _EXPLAIN_FORMATS.get(raw_value.upper())
+        if explain_format is None:
+            raise UnsupportedSqlError(
+                "MySQL 不支持该 EXPLAIN FORMAT 值",
+                hint="仅支持 TRADITIONAL、JSON 和 TREE",
+            )
+        return explain_format
 
     @staticmethod
     def _read_effect(expression: Expression, statement_type: SqlStatementType) -> SqlReadEffect:
