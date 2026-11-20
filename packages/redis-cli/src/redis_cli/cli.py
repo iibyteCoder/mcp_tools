@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import click
 
+from db_cli_kit.stdio import enforce_utf8_stdio
 from redis_cli import __version__
 from redis_cli.cli_support import (
     NONNEGATIVE_INT,
@@ -129,6 +130,7 @@ cli.add_command(zset)
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI and return its stable process code."""
 
+    enforce_utf8_stdio()
     arguments = tuple(sys.argv[1:] if argv is None else argv)
     result = cli.main(args=arguments, prog_name="db-redis", standalone_mode=False)
     return 0 if result is None else int(result)

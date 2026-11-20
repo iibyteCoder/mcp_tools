@@ -42,6 +42,7 @@ def run_cli(
         env=cli_environment,
         input=stdin_text,
         text=True,
+        encoding="utf-8",
     )
 
 

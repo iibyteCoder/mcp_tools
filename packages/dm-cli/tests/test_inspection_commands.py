@@ -37,6 +37,7 @@ def run_cli(cli_environment: dict[str, str], *arguments: str) -> subprocess.Comp
         check=False,
         env=cli_environment,
         text=True,
+        encoding="utf-8",
     )
 
 

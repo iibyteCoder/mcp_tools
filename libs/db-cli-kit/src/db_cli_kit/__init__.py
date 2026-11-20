@@ -19,9 +19,11 @@ from db_cli_kit.profiles import (
     normalize_directory,
 )
 from db_cli_kit.secrets import KeyringSecretStore, SecretStore, SecretStoreError
+from db_cli_kit.stdio import TEXT_ENCODING, enforce_utf8_stdio
 
 __all__ = [
     "PROFILE_NAME_PATTERN",
+    "TEXT_ENCODING",
     "AtomicJsonError",
     "AtomicJsonErrorReason",
     "AtomicJsonStore",
@@ -35,6 +37,7 @@ __all__ = [
     "SecretStore",
     "SecretStoreError",
     "encode_json_document",
+    "enforce_utf8_stdio",
     "is_json_array",
     "is_json_object",
     "is_json_value",

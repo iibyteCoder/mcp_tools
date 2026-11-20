@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from db_cli_kit.stdio import enforce_utf8_stdio
 from dm_cli import __version__
 from dm_cli.application.runner import CliRuntime
 from dm_cli.presentation.click.commands.profile import profile
@@ -55,6 +56,7 @@ cli.add_command(sql)
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI and return a stable process exit code."""
 
+    enforce_utf8_stdio()
     arguments = tuple(sys.argv[1:] if argv is None else argv)
     result = cli.main(args=arguments, prog_name="db-dm", standalone_mode=False)
     return 0 if result is None else int(result)
