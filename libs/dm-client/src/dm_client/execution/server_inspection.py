@@ -60,9 +60,7 @@ _PARAMETER_COLUMNS: Final[tuple[ColumnDefinition, ...]] = (
 )
 
 _INTEGER_TEXT_PATTERN: Final[re.Pattern[str]] = re.compile(r"[+-]?[0-9]+")
-_DMPYTHON_FACT_NAMES: Final[frozenset[str]] = frozenset(
-    {"case_sensitive", "max_identifier_length", "server_version"}
-)
+_DMPYTHON_FACT_NAMES: Final[frozenset[str]] = frozenset({"case_sensitive", "max_identifier_length", "server_version"})
 
 
 def run_server_inspect(
@@ -169,7 +167,16 @@ def _parameter_rows(rows: tuple[DriverRow, ...]) -> tuple[DatabaseRow, ...]:
         if _is_sensitive_parameter(name):
             result.append(
                 DatabaseRow.from_values(
-                    (name, REDACTED_VALUE, REDACTED_VALUE, REDACTED_VALUE, REDACTED_VALUE, REDACTED_VALUE, REDACTED_VALUE, True)
+                    (
+                        name,
+                        REDACTED_VALUE,
+                        REDACTED_VALUE,
+                        REDACTED_VALUE,
+                        REDACTED_VALUE,
+                        REDACTED_VALUE,
+                        REDACTED_VALUE,
+                        True,
+                    )
                 )
             )
         else:

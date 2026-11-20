@@ -133,9 +133,7 @@ _SERVER_VARIABLES_BASE_SQL = (
     "CASE WHEN LOWER(VARIABLE_NAME) REGEXP %s THEN 1 ELSE 0 END AS redacted "
     "FROM performance_schema.global_variables"
 )
-_SERVER_STATUS_BASE_SQL = (
-    "SELECT VARIABLE_NAME AS name, VARIABLE_VALUE AS value FROM performance_schema.global_status"
-)
+_SERVER_STATUS_BASE_SQL = "SELECT VARIABLE_NAME AS name, VARIABLE_VALUE AS value FROM performance_schema.global_status"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

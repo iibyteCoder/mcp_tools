@@ -149,9 +149,7 @@ def run_schema_constraints(
         cursor.close()
 
     columns_by_constraint = _columns_by_constraint(column_rows)
-    rows = tuple(
-        _constraint_row(row, columns_by_constraint, referenced) for row in constraint_rows
-    )
+    rows = tuple(_constraint_row(row, columns_by_constraint, referenced) for row in constraint_rows)
     metadata = build_metadata(SqlStatementType.SELECT, started_at, resolved_target, row_count=len(rows))
     query = QueryResult(columns=_CONSTRAINT_COLUMNS, rows=rows, metadata=metadata)
     return InspectionResult(kind=InspectionKind.SCHEMA_CONSTRAINTS, query=query)
@@ -329,7 +327,7 @@ def _optional_text(value: DatabaseValue) -> str | None:
 def _object_row(row: DriverRow) -> DatabaseRow:
     if len(row) < _OBJECT_ROW_WIDTH:
         raise QueryError("ALL_OBJECTS returned an unexpected row shape")
-    values = list(row[: _OBJECT_ROW_WIDTH])
+    values = list(row[:_OBJECT_ROW_WIDTH])
     values[0] = _object_type_value(values[0])
     return DatabaseRow.from_values(values)
 

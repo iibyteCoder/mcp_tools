@@ -231,9 +231,7 @@ def test_schema_ddl_service_defaults_to_a_table_and_requires_a_name_before_conne
         },
     )
 
-    data = asyncio.run(
-        service.execute(request_for(CommandAction.DDL, object_name=ObjectName(value="T")))
-    )
+    data = asyncio.run(service.execute(request_for(CommandAction.DDL, object_name=ObjectName(value="T"))))
 
     assert isinstance(data.result, DdlResult)
     assert data.result.object_type is ObjectType.TABLE
@@ -302,11 +300,7 @@ def test_schema_objects_service_dispatches_an_explicit_type(tmp_path: Path) -> N
         },
     )
 
-    data = asyncio.run(
-        service.execute(
-            request_for(CommandAction.OBJECTS, object_type=ObjectType.INDEX)
-        )
-    )
+    data = asyncio.run(service.execute(request_for(CommandAction.OBJECTS, object_type=ObjectType.INDEX)))
 
     assert isinstance(data.result, InspectionResult)
     assert data.result.kind is InspectionKind.SCHEMA_OBJECTS

@@ -66,14 +66,16 @@ def runtime(service: FakeInspectionService) -> CliRuntime:
         (["server", "processes"], CommandGroup.SERVER, CommandAction.PROCESSES),
         (["schema", "databases"], CommandGroup.SCHEMA, CommandAction.DATABASES),
         (["schema", "tables", "--database", "billing"], CommandGroup.SCHEMA, CommandAction.TABLES),
-        (["schema", "describe", "--database", "billing", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.DESCRIBE),
+        (
+            ["schema", "describe", "--database", "billing", "--table", "invoices"],
+            CommandGroup.SCHEMA,
+            CommandAction.DESCRIBE,
+        ),
         (["schema", "indexes", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.INDEXES),
         (["schema", "stats", "--table", "invoices"], CommandGroup.SCHEMA, CommandAction.STATS),
     ],
 )
-def test_inspection_routes_are_typed(
-    arguments: list[str], group: CommandGroup, action: CommandAction
-) -> None:
+def test_inspection_routes_are_typed(arguments: list[str], group: CommandGroup, action: CommandAction) -> None:
     service = FakeInspectionService()
     result = CliRunner().invoke(cli, ["--profile", "dev", *arguments], obj=runtime(service))
 

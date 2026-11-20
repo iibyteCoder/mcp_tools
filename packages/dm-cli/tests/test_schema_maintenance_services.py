@@ -245,11 +245,7 @@ def test_schema_analyze_service_dispatches_options_and_returns_the_analysis(tmp_
 def test_schema_analyze_service_binds_an_explicit_schema(tmp_path: Path) -> None:
     service, factory, connection = maintenance_service(tmp_path)
 
-    data = asyncio.run(
-        service.execute(
-            request_for(schema=SchemaName(value="OTHER"), table=TableName(value="T"))
-        )
-    )
+    data = asyncio.run(service.execute(request_for(schema=SchemaName(value="OTHER"), table=TableName(value="T"))))
 
     assert isinstance(data.result, AnalyzeResult)
     assert data.result.schema == "OTHER"

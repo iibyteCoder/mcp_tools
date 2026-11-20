@@ -231,9 +231,7 @@ def test_server_inspect_service_returns_typed_result_and_closes_connection(tmp_p
         },
     )
 
-    data = asyncio.run(
-        server_service.execute(request_for(CommandGroup.SERVER, CommandAction.INSPECT))
-    )
+    data = asyncio.run(server_service.execute(request_for(CommandGroup.SERVER, CommandAction.INSPECT)))
 
     assert isinstance(data, InspectionCommandData)
     assert isinstance(data.result, ServerInspectResult)
@@ -256,9 +254,7 @@ def test_server_capabilities_service_returns_typed_facts(tmp_path: Path) -> None
         },
     )
 
-    data = asyncio.run(
-        server_service.execute(request_for(CommandGroup.SERVER, CommandAction.CAPABILITIES))
-    )
+    data = asyncio.run(server_service.execute(request_for(CommandGroup.SERVER, CommandAction.CAPABILITIES)))
 
     assert isinstance(data.result, ServerCapabilitiesResult)
     facts = {fact.name: fact for fact in data.result.facts}
@@ -292,14 +288,10 @@ def test_server_parameters_service_dispatches_filter_all_and_redaction(tmp_path:
     )
 
     everything = asyncio.run(
-        server_service.execute(
-            request_for(CommandGroup.SERVER, CommandAction.PARAMETERS, parameters_include_all=True)
-        )
+        server_service.execute(request_for(CommandGroup.SERVER, CommandAction.PARAMETERS, parameters_include_all=True))
     )
     filtered = asyncio.run(
-        server_service.execute(
-            request_for(CommandGroup.SERVER, CommandAction.PARAMETERS, parameters_filter="PWD")
-        )
+        server_service.execute(request_for(CommandGroup.SERVER, CommandAction.PARAMETERS, parameters_filter="PWD"))
     )
 
     assert isinstance(everything.result, InspectionResult)
@@ -335,9 +327,7 @@ def test_schema_databases_service_uses_a_directory_binding(tmp_path: Path) -> No
     )
     service = SchemaInspectionService(profiles, factory)
 
-    data = asyncio.run(
-        service.execute(CommandRequest(group=CommandGroup.SCHEMA, action=CommandAction.DATABASES))
-    )
+    data = asyncio.run(service.execute(CommandRequest(group=CommandGroup.SCHEMA, action=CommandAction.DATABASES)))
 
     assert isinstance(data.result, InspectionResult)
     assert data.profile == "dev"
@@ -444,9 +434,7 @@ def test_schema_stats_service_accepts_an_optional_table(tmp_path: Path) -> None:
         },
     )
 
-    without_table = asyncio.run(
-        schema_service.execute(request_for(CommandGroup.SCHEMA, CommandAction.STATS))
-    )
+    without_table = asyncio.run(schema_service.execute(request_for(CommandGroup.SCHEMA, CommandAction.STATS)))
     with_table = asyncio.run(
         schema_service.execute(
             request_for(
@@ -480,11 +468,7 @@ def test_schema_indexes_without_a_table_fails_before_connecting(tmp_path: Path) 
     _, schema_service, factory, executed = services(tmp_path, {})
 
     with pytest.raises(InvalidArgumentError):
-        asyncio.run(
-            schema_service.execute(
-                request_for(CommandGroup.SCHEMA, CommandAction.INDEXES)
-            )
-        )
+        asyncio.run(schema_service.execute(request_for(CommandGroup.SCHEMA, CommandAction.INDEXES)))
 
     assert factory.configs == []
     assert executed == []
@@ -536,11 +520,7 @@ def test_schema_describe_without_a_table_fails_before_connecting(tmp_path: Path)
     _, schema_service, factory, executed = services(tmp_path, {})
 
     with pytest.raises(InvalidArgumentError):
-        asyncio.run(
-            schema_service.execute(
-                request_for(CommandGroup.SCHEMA, CommandAction.DESCRIBE)
-            )
-        )
+        asyncio.run(schema_service.execute(request_for(CommandGroup.SCHEMA, CommandAction.DESCRIBE)))
 
     assert factory.configs == []
     assert executed == []

@@ -469,9 +469,7 @@ def test_live_inspection_commands_report_server_schema_tables_and_columns(tmp_pa
     server_service = ServerInspectionService(profiles, factory)
     schema_service = SchemaInspectionService(profiles, factory)
 
-    inspected = asyncio.run(
-        server_service.execute(inspection_request(CommandGroup.SERVER, CommandAction.INSPECT))
-    )
+    inspected = asyncio.run(server_service.execute(inspection_request(CommandGroup.SERVER, CommandAction.INSPECT)))
     assert isinstance(inspected.result, ServerInspectResult)
     assert inspected.result.server.name
     assert inspected.result.server.version
@@ -489,9 +487,7 @@ def test_live_inspection_commands_report_server_schema_tables_and_columns(tmp_pa
     assert facts["server_version"].value
     assert any(fact.source == "V$DM_INI" for fact in capabilities.result.facts)
 
-    databases = asyncio.run(
-        schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.DATABASES))
-    )
+    databases = asyncio.run(schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.DATABASES)))
     assert isinstance(databases.result, InspectionResult)
     assert databases.result.kind is InspectionKind.SCHEMA_DATABASES
     schema_names = [str(row.values[0]) for row in databases.result.query.rows]
@@ -499,9 +495,7 @@ def test_live_inspection_commands_report_server_schema_tables_and_columns(tmp_pa
     assert "SYS" not in schema_names
     assert all(isinstance(row.values[2], bool) for row in databases.result.query.rows)
 
-    tables = asyncio.run(
-        schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.TABLES))
-    )
+    tables = asyncio.run(schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.TABLES)))
     assert isinstance(tables.result, InspectionResult)
     assert [column.name for column in tables.result.query.columns] == [
         "SCHEMA_NAME",
@@ -552,9 +546,7 @@ def test_live_schema_indexes_and_stats(tmp_path: Path) -> None:
     assert index_names
     assert all(index_columns)
 
-    statistics = asyncio.run(
-        schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.STATS))
-    )
+    statistics = asyncio.run(schema_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.STATS)))
     assert isinstance(statistics.result, InspectionResult)
     assert statistics.result.kind is InspectionKind.SCHEMA_STATS
     assert [column.name for column in statistics.result.query.columns] == list(LIVE_STATS_COLUMNS)
@@ -648,14 +640,9 @@ def test_live_schema_constraints_and_objects(tmp_path: Path) -> None:
     checks = [values for values in constraint_rows if values[1] is ConstraintType.CHECK]
     assert checks
     assert any(values[3] for values in checks)
-    print(
-        f"{LIVE_CONSTRAINT_TABLE} constraints: "
-        f"{[(str(values[0]), str(values[1])) for values in constraint_rows]}"
-    )
+    print(f"{LIVE_CONSTRAINT_TABLE} constraints: {[(str(values[0]), str(values[1])) for values in constraint_rows]}")
 
-    objects = asyncio.run(
-        catalog_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.OBJECTS))
-    )
+    objects = asyncio.run(catalog_service.execute(inspection_request(CommandGroup.SCHEMA, CommandAction.OBJECTS)))
     assert isinstance(objects.result, InspectionResult)
     assert objects.result.kind is InspectionKind.SCHEMA_OBJECTS
     assert [column.name for column in objects.result.query.columns] == list(LIVE_OBJECT_COLUMNS)
@@ -665,9 +652,7 @@ def test_live_schema_constraints_and_objects(tmp_path: Path) -> None:
     assert ("view", LIVE_VIEW) in object_pairs
     object_types = {object_type for object_type, _ in object_pairs}
     assert "index" not in object_types
-    assert object_types <= {
-        object_type.value for object_type in ObjectType if object_type is not ObjectType.INDEX
-    }
+    assert object_types <= {object_type.value for object_type in ObjectType if object_type is not ObjectType.INDEX}
     print(f"{LIVE_SCHEMA} default objects: {len(object_pairs)}")
 
     indexes = asyncio.run(
@@ -702,20 +687,14 @@ def test_live_server_parameters_redacts_filtered_values(tmp_path: Path) -> None:
     profiles = create_profile_service(tmp_path, factory)
     server_service = ServerInspectionService(profiles, factory)
 
-    parameters = asyncio.run(
-        server_service.execute(
-            inspection_request(CommandGroup.SERVER, CommandAction.PARAMETERS)
-        )
-    )
+    parameters = asyncio.run(server_service.execute(inspection_request(CommandGroup.SERVER, CommandAction.PARAMETERS)))
     assert isinstance(parameters.result, InspectionResult)
     assert parameters.result.kind is InspectionKind.SERVER_PARAMETERS
     assert [column.name for column in parameters.result.query.columns] == list(LIVE_PARAMETER_COLUMNS)
     assert parameters.result.query.rows
     assert all(isinstance(row.values[7], bool) for row in parameters.result.query.rows)
     assert all(row.values[7] is False for row in parameters.result.query.rows)
-    print(
-        f"default parameters: {[str(row.values[0]) for row in parameters.result.query.rows]}"
-    )
+    print(f"default parameters: {[str(row.values[0]) for row in parameters.result.query.rows]}")
 
     filtered = asyncio.run(
         server_service.execute(
@@ -732,9 +711,7 @@ def test_live_server_parameters_redacts_filtered_values(tmp_path: Path) -> None:
     for row in filtered.result.query.rows:
         assert row.values[7] is True
         assert row.values[1:7] == ("***", "***", "***", "***", "***", "***")
-    print(
-        f"filtered parameters: {[str(row.values[0]) for row in filtered.result.query.rows]}"
-    )
+    print(f"filtered parameters: {[str(row.values[0]) for row in filtered.result.query.rows]}")
 
 
 def test_live_schema_analyze_collects_statistics_and_cleans_up(tmp_path: Path) -> None:
@@ -779,9 +756,7 @@ def test_live_schema_analyze_collects_statistics_and_cleans_up(tmp_path: Path) -
         assert result.outcome is WriteOutcome.COMMITTED
         assert isinstance(result.before, AnalyzeStatistics)
         assert result.before.num_rows is None or result.before.num_rows >= 0
-        assert result.before.last_analyzed is None or isinstance(
-            result.before.last_analyzed, datetime
-        )
+        assert result.before.last_analyzed is None or isinstance(result.before.last_analyzed, datetime)
         assert result.after.last_analyzed is not None
         assert result.after.num_rows == 3
         print(f"{table} analyze: before={result.before} after={result.after}")

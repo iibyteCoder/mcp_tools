@@ -101,9 +101,7 @@ class SqlExecutionService:
                 )
             )
         if request.action is CommandAction.EXPLAIN:
-            return await session.execute_explain(
-                ExplainRequest(sql=sql, statement_timeout_seconds=statement_timeout)
-            )
+            return await session.execute_explain(ExplainRequest(sql=sql, statement_timeout_seconds=statement_timeout))
         if request.action is CommandAction.BENCHMARK:
             return await session.execute_benchmark(
                 BenchmarkRequest(

@@ -271,11 +271,7 @@ def _statement_type(top_level: tuple[_SqlToken, ...]) -> SqlStatementType:
 
 
 def _is_explain_analyze(top_level: tuple[_SqlToken, ...]) -> bool:
-    return (
-        len(top_level) > 1
-        and top_level[0].upper == "EXPLAIN"
-        and top_level[1].upper == "ANALYZE"
-    )
+    return len(top_level) > 1 and top_level[0].upper == "EXPLAIN" and top_level[1].upper == "ANALYZE"
 
 
 def _read_effect(

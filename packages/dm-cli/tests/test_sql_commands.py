@@ -230,9 +230,7 @@ def test_explain_actual_rejects_explain_analyze(cli_environment: dict[str, str])
     assert as_object(details[0])["error_type"] == "policy_violation"
 
 
-def test_explain_actual_does_not_accept_params_file(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_explain_actual_does_not_accept_params_file(cli_environment: dict[str, str], tmp_path: Path) -> None:
     params_file = tmp_path / "params.json"
     params_file.write_text("[1]", encoding="utf-8")
 
@@ -301,9 +299,7 @@ def test_malformed_sql_is_invalid_sql(cli_environment: dict[str, str]) -> None:
     assert as_object(details[0])["error_type"] == "sql_parse"
 
 
-def test_sql_option_and_sql_file_are_mutually_exclusive(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_sql_option_and_sql_file_are_mutually_exclusive(cli_environment: dict[str, str], tmp_path: Path) -> None:
     sql_file = tmp_path / "query.sql"
     sql_file.write_text("SELECT 1", encoding="utf-8")
 
@@ -353,9 +349,7 @@ def test_parameter_object_is_rejected(cli_environment: dict[str, str], tmp_path:
     assert as_object(details[0])["error_type"] == "invalid_params_type"
 
 
-def test_parameter_array_reports_secret_free_diagnostics(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_parameter_array_reports_secret_free_diagnostics(cli_environment: dict[str, str], tmp_path: Path) -> None:
     params_file = tmp_path / "params.json"
     params_file.write_text('[7, "alpha"]', encoding="utf-8")
 
@@ -421,9 +415,7 @@ def test_sql_file_dash_reads_stdin_and_preserves_the_source(cli_environment: dic
     assert meta["input_source"] == "stdin"
 
 
-def test_sql_text_and_parameter_values_are_never_echoed(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_sql_text_and_parameter_values_are_never_echoed(cli_environment: dict[str, str], tmp_path: Path) -> None:
     params_file = tmp_path / "params.json"
     params_file.write_text('["super-secret-parameter"]', encoding="utf-8")
 

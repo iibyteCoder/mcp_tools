@@ -75,12 +75,15 @@ def test_parser_classifies_supported_mysql_statements(
     parsed = parser.parse(SqlText(sql))
 
     assert parsed.statement_type is statement_type
-    assert parsed.is_read_only is (statement_type in {
-        SqlStatementType.SELECT,
-        SqlStatementType.SHOW,
-        SqlStatementType.DESCRIBE,
-        SqlStatementType.EXPLAIN,
-    })
+    assert parsed.is_read_only is (
+        statement_type
+        in {
+            SqlStatementType.SELECT,
+            SqlStatementType.SHOW,
+            SqlStatementType.DESCRIBE,
+            SqlStatementType.EXPLAIN,
+        }
+    )
     assert parsed.is_write is not parsed.is_read_only
 
 

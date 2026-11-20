@@ -97,7 +97,9 @@ class AtomicJsonStore:
     def _write_unlocked(self, document: JsonObject) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            descriptor, temporary_name = tempfile.mkstemp(prefix=f".{self.path.stem}.", suffix=".tmp", dir=self.path.parent)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{self.path.stem}.", suffix=".tmp", dir=self.path.parent
+            )
             temporary_path = Path(temporary_name)
             try:
                 with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:

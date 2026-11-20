@@ -34,7 +34,9 @@ def imported_modules(source_file: Path) -> list[tuple[str, int]]:
 
 def is_allowed(module: str, allowed_prefixes: tuple[str, ...]) -> bool:
     root = module.split(".")[0]
-    return root in STDLIB_MODULES or any(module == prefix or module.startswith(f"{prefix}.") for prefix in allowed_prefixes)
+    return root in STDLIB_MODULES or any(
+        module == prefix or module.startswith(f"{prefix}.") for prefix in allowed_prefixes
+    )
 
 
 def test_domain_imports_only_stdlib_and_domain() -> None:
@@ -99,10 +101,7 @@ def test_driver_executor_has_one_implementation_in_execution() -> None:
     definitions: list[tuple[str, ...]] = []
     for source_file in SOURCE_ROOT.rglob("*.py"):
         module = ast.parse(source_file.read_text(encoding="utf-8"))
-        if any(
-            isinstance(node, ast.ClassDef) and node.name == "DriverExecutor"
-            for node in ast.walk(module)
-        ):
+        if any(isinstance(node, ast.ClassDef) and node.name == "DriverExecutor" for node in ast.walk(module)):
             definitions.append(source_file.relative_to(SOURCE_ROOT).parts)
 
     assert definitions == [("execution", "executor.py")]

@@ -23,12 +23,8 @@ DEFAULT_BENCHMARK_WARMUP_ITERATIONS: Final[int] = 1
 MAX_BENCHMARK_ITERATIONS: Final[int] = 100
 MAX_BENCHMARK_WARMUP_ITERATIONS: Final[int] = 10
 
-_ITERATIONS_LIMIT_MESSAGE: Final[str] = (
-    f"benchmark iterations must not exceed {MAX_BENCHMARK_ITERATIONS}"
-)
-_WARMUP_LIMIT_MESSAGE: Final[str] = (
-    f"benchmark warmup iterations must not exceed {MAX_BENCHMARK_WARMUP_ITERATIONS}"
-)
+_ITERATIONS_LIMIT_MESSAGE: Final[str] = f"benchmark iterations must not exceed {MAX_BENCHMARK_ITERATIONS}"
+_WARMUP_LIMIT_MESSAGE: Final[str] = f"benchmark warmup iterations must not exceed {MAX_BENCHMARK_WARMUP_ITERATIONS}"
 
 
 def run_benchmark(
@@ -49,9 +45,7 @@ def run_benchmark(
     validate_execution_policy(parsed, ExecutionPolicy.READ_ONLY)
     iterations = request.iterations or DEFAULT_BENCHMARK_ITERATIONS
     warmup_iterations = (
-        DEFAULT_BENCHMARK_WARMUP_ITERATIONS
-        if request.warmup_iterations is None
-        else request.warmup_iterations
+        DEFAULT_BENCHMARK_WARMUP_ITERATIONS if request.warmup_iterations is None else request.warmup_iterations
     )
     if iterations > MAX_BENCHMARK_ITERATIONS:
         raise InvalidArgumentError(_ITERATIONS_LIMIT_MESSAGE)

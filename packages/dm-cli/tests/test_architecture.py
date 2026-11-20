@@ -58,7 +58,14 @@ def test_application_has_no_click_presentation_or_adapter_imports() -> None:
         violations(
             "application",
             forbidden=("click", "dm_cli.presentation", "dm_cli.adapters"),
-            allowed=("dm_cli.domain", "dm_cli.ports", "dm_cli.application", "dm_cli.composition", "db_cli_kit", "dm_client"),
+            allowed=(
+                "dm_cli.domain",
+                "dm_cli.ports",
+                "dm_cli.application",
+                "dm_cli.composition",
+                "db_cli_kit",
+                "dm_client",
+            ),
         )
         == []
     )
@@ -69,7 +76,16 @@ def test_presentation_has_no_adapter_imports() -> None:
         violations(
             "presentation",
             forbidden=("dm_cli.adapters",),
-            allowed=("dm_cli", "dm_cli.domain", "dm_cli.application", "dm_cli.ports", "dm_cli.presentation", "db_cli_kit", "dm_client", "click"),
+            allowed=(
+                "dm_cli",
+                "dm_cli.domain",
+                "dm_cli.application",
+                "dm_cli.ports",
+                "dm_cli.presentation",
+                "db_cli_kit",
+                "dm_client",
+                "click",
+            ),
         )
         == []
     )

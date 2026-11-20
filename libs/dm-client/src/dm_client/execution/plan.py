@@ -17,16 +17,10 @@ from dm_client.domain.results import PlanNode
 
 PLAN_INDENT_WIDTH: Final[int] = 2
 
-_PLAN_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^\s*(?P<line>\d+)(?P<gap>\s+)(?P<body>#.*)$"
-)
+_PLAN_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(r"^\s*(?P<line>\d+)(?P<gap>\s+)(?P<body>#.*)$")
 _LINE_NUMBER_PATTERN: Final[re.Pattern[str]] = re.compile(r"^\s*(?P<line>\d+)\b")
-_OPERATION_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^#(?P<operation>[^:]*?)(?::\s*(?P<rest>.*))?$"
-)
-_METRICS_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^\[(?P<values>[^\]]*)\](?:;\s*(?P<detail>.*))?$"
-)
+_OPERATION_PATTERN: Final[re.Pattern[str]] = re.compile(r"^#(?P<operation>[^:]*?)(?::\s*(?P<rest>.*))?$")
+_METRICS_PATTERN: Final[re.Pattern[str]] = re.compile(r"^\[(?P<values>[^\]]*)\](?:;\s*(?P<detail>.*))?$")
 _METRIC_SEPARATOR: Final[str] = ","
 _METRIC_PART_COUNT: Final[int] = 3
 

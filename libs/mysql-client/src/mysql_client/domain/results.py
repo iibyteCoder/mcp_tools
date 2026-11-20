@@ -168,11 +168,5 @@ class ErrorReport:
 
 
 ResponsePayload: TypeAlias = (
-    QueryResult
-    | WriteResult
-    | ExplainResult
-    | BenchmarkResult
-    | CompareResult
-    | InspectionResult
-    | AnalyzeTableResult
+    QueryResult | WriteResult | ExplainResult | BenchmarkResult | CompareResult | InspectionResult | AnalyzeTableResult
 )

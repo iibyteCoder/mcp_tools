@@ -124,9 +124,7 @@ def _registry_from_document(document: JsonObject) -> ProfileRegistry:
     if isinstance(version, bool) or not isinstance(version, int):
         raise ProfileStoreError(RegistryErrorCode.CORRUPT, "profile registry version is invalid")
     if version != VERSION:
-        raise ProfileStoreError(
-            RegistryErrorCode.UNSUPPORTED_VERSION, "profile registry version is unsupported"
-        )
+        raise ProfileStoreError(RegistryErrorCode.UNSUPPORTED_VERSION, "profile registry version is unsupported")
     profiles_value = document.get("profiles")
     bindings_value = document.get("bindings")
     if not isinstance(profiles_value, list) or not isinstance(bindings_value, list):

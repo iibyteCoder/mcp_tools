@@ -166,11 +166,7 @@ def run_compare(
         target=resolved_target,
     )
 
-    max_diff_samples = (
-        DEFAULT_MAX_DIFF_SAMPLES
-        if request.max_diff_samples is None
-        else request.max_diff_samples
-    )
+    max_diff_samples = DEFAULT_MAX_DIFF_SAMPLES if request.max_diff_samples is None else request.max_diff_samples
     equal, differences = compare_results(left, right, request.key_columns, max_diff_samples)
     metadata = ExecutionMetadata(
         statement_type=SqlStatementType.SELECT,
@@ -219,9 +215,7 @@ def _rows_by_key(
 ) -> dict[str, _KeyedRow] | None:
     rows: dict[str, _KeyedRow] = {}
     duplicate_location = (
-        ComparisonLocation.LEFT_DUPLICATE_KEY
-        if side is ComparisonSide.LEFT
-        else ComparisonLocation.RIGHT_DUPLICATE_KEY
+        ComparisonLocation.LEFT_DUPLICATE_KEY if side is ComparisonSide.LEFT else ComparisonLocation.RIGHT_DUPLICATE_KEY
     )
     for row in result.rows:
         key_values = tuple(row.values[index] for index in indexes)

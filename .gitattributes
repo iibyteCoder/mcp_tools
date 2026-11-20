@@ -1,0 +1,40 @@
+# Normalise line endings so the working tree matches what the repository stores.
+#
+# Without this, `core.autocrlf=true` on Windows checks files out as CRLF while git
+# stores LF. That divergence is invisible in diffs but breaks any tool comparing
+# on-disk bytes against a fixed convention: `ruff format` enforces
+# `line-ending = "lf"` and reported 64 files as unformatted purely because of
+# CRLF, with no real formatting difference.
+#
+# Declaring `eol=lf` makes checkout produce LF regardless of platform, so the
+# working tree, the repository and CI all agree.
+
+* text=auto eol=lf
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+
+# Shell scripts must keep LF: a CRLF shebang fails with "bad interpreter".
+*.sh text eol=lf
+
+# Windows launchers need CRLF; cmd.exe misreads LF-only batch files. No such file
+# exists in this repository yet, and the rule is here so adding one cannot go
+# wrong silently.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary content must never be translated.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.zip     binary
+*.gz      binary
+*.whl     binary
+*.sqlite3 binary

@@ -63,11 +63,7 @@ def _inspection_request(request: CommandRequest) -> InspectionRequest:
     if request.group is CommandGroup.SERVER and request.action is CommandAction.CAPABILITIES:
         return ServerCapabilitiesRequest()
     if request.group is CommandGroup.SERVER and request.action in {CommandAction.VARIABLES, CommandAction.STATUS}:
-        kind = (
-            ServerMetricKind.VARIABLES
-            if request.action is CommandAction.VARIABLES
-            else ServerMetricKind.STATUS
-        )
+        kind = ServerMetricKind.VARIABLES if request.action is CommandAction.VARIABLES else ServerMetricKind.STATUS
         return ServerMetricsRequest(
             kind=kind,
             filter_text=request.server_filter_text,

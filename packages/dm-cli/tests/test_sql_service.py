@@ -74,15 +74,10 @@ class FakeCursor:
         columns: Sequence[DriverColumn] | None = None,
     ) -> None:
         self.description: Sequence[DriverColumn] = (
-            (DriverColumn(name="ID", type_name="NUMBER", nullable=False),)
-            if columns is None
-            else columns
+            (DriverColumn(name="ID", type_name="NUMBER", nullable=False),) if columns is None else columns
         )
         self._default_rows = [tuple(row) for row in rows]
-        self._responses = {
-            sql: [tuple(row) for row in response]
-            for sql, response in (responses or {}).items()
-        }
+        self._responses = {sql: [tuple(row) for row in response] for sql, response in (responses or {}).items()}
         self._rows = list(self._default_rows)
         self.rowcount = 1
         self.executed: list[tuple[str, tuple[object, ...]]] = []

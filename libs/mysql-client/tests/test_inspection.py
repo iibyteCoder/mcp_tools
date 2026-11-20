@@ -150,9 +150,7 @@ def test_server_status_uses_global_status_and_keeps_string_values() -> None:
 
 
 def test_server_status_filter_binds_a_like_pattern_without_interpolation() -> None:
-    definition = build_inspection_query(
-        ServerMetricsRequest(kind=ServerMetricKind.STATUS, filter_text="Threads")
-    )
+    definition = build_inspection_query(ServerMetricsRequest(kind=ServerMetricKind.STATUS, filter_text="Threads"))
 
     assert "VARIABLE_NAME LIKE %s" in definition.sql
     assert "Threads" not in definition.sql

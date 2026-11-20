@@ -50,11 +50,7 @@ if TYPE_CHECKING:
 
 
 CommandData = (
-    CommandDiagnosticData
-    | ProfileCommandData
-    | InspectionCommandData
-    | SchemaAnalyzeCommandData
-    | SqlCommandData
+    CommandDiagnosticData | ProfileCommandData | InspectionCommandData | SchemaAnalyzeCommandData | SqlCommandData
 )
 
 

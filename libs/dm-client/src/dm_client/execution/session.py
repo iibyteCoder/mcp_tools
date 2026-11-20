@@ -103,8 +103,7 @@ class DmSession:
             current_schema = await executor.run(_current_schema, connection)
             if requested_schema is not None and current_schema != requested_schema:
                 raise ConfigurationError(
-                    f"DM schema {requested_schema!r} was not applied; "
-                    f"the connected schema is {current_schema!r}",
+                    f"DM schema {requested_schema!r} was not applied; the connected schema is {current_schema!r}",
                     hint="verify that the schema exists and the user can access it",
                 )
             target = await executor.run(build_target, self._target_label, self._config, connection)

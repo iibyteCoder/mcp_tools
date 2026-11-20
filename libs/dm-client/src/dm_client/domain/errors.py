@@ -197,7 +197,9 @@ def error_report_from_exception(exc: BaseException) -> ErrorReport:
             write_outcome=exc.write_outcome,
             differences=exc.differences,
         )
-    code = ClientErrorCode.INVALID_ARGUMENT if isinstance(exc, (ValueError, TypeError)) else ClientErrorCode.INTERNAL_ERROR
+    code = (
+        ClientErrorCode.INVALID_ARGUMENT if isinstance(exc, (ValueError, TypeError)) else ClientErrorCode.INTERNAL_ERROR
+    )
     return ErrorReport(
         code=code,
         message=str(exc) or exc.__class__.__name__,

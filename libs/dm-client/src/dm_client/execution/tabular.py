@@ -132,9 +132,11 @@ def approximate_value_size(value: DatabaseValue) -> int:
     if isinstance(value, (datetime, date, time)):
         return len(value.isoformat()) + _STRING_QUOTE_OVERHEAD
     if isinstance(value, list):
-        return _CONTAINER_OVERHEAD + sum(approximate_value_size(item) for item in value) + max(
-            0, len(value) - 1
-        ) * _ITEM_SEPARATOR_SIZE
+        return (
+            _CONTAINER_OVERHEAD
+            + sum(approximate_value_size(item) for item in value)
+            + max(0, len(value) - 1) * _ITEM_SEPARATOR_SIZE
+        )
     if isinstance(value, dict):
         size = _CONTAINER_OVERHEAD
         for index, (key, item) in enumerate(value.items()):

@@ -31,9 +31,7 @@ COMPARE_LEFT_SQL_ARGUMENT: Final[str] = "--left-sql/--left-sql-file"
 COMPARE_RIGHT_SQL_ARGUMENT: Final[str] = "--right-sql/--right-sql-file"
 COMPARE_SQL_ARGUMENT: Final[str] = "--left-sql/--left-sql-file and --right-sql/--right-sql-file"
 STDIN_INPUT_NAME: Final[str] = "stdin"
-PARAMS_ARRAY_MESSAGE: Final[str] = (
-    "DM accepts positional ? parameters only and requires a top-level JSON array"
-)
+PARAMS_ARRAY_MESSAGE: Final[str] = "DM accepts positional ? parameters only and requires a top-level JSON array"
 EMPTY_SQL_MESSAGE: Final[str] = "SQL input must not be empty"
 
 

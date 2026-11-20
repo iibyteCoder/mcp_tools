@@ -162,9 +162,7 @@ async def test_explain_result_reports_the_detected_format(
 
 @pytest.mark.asyncio
 async def test_write_failure_reports_rollback_and_commit_failure_reports_unknown() -> None:
-    rollback_cursor = FakeCursor(
-        {}, execute_failure=DriverFailure(DriverFailureKind.EXECUTION)
-    )
+    rollback_cursor = FakeCursor({}, execute_failure=DriverFailure(DriverFailureKind.EXECUTION))
     rollback_connection = FakeConnection(rollback_cursor)
     async with MySqlSession(connection_config(), FakeFactory(rollback_connection)) as session:
         with pytest.raises(WriteExecutionError) as rollback_error:

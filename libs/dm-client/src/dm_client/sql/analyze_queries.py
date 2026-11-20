@@ -18,9 +18,7 @@ _PARTITION_STATS_QUERY: Final[str] = (
     "WHERE TABLE_OWNER = ? AND TABLE_NAME = ? AND PARTITION_NAME = ?"
 )
 
-GATHER_TABLE_STATS_CALL: Final[str] = (
-    "CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?, ?, ?, ?, ?, ?, ?, ?)"
-)
+GATHER_TABLE_STATS_CALL: Final[str] = "CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 
 def build_table_stats_query(*, partitioned: bool) -> str:

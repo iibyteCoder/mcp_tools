@@ -34,9 +34,9 @@ def _sql_input_options(command: CommandCallback) -> CommandCallback:
     """Add common mutually exclusive SQL input options to one command."""
 
     command_with_text = click.option("--sql", "sql_text", type=str, help="inline SQL text")(command)
-    command_with_file = click.option(
-        "--sql-file", "sql_file", type=SQL_PATH, help="SQL file path; - reads stdin"
-    )(command_with_text)
+    command_with_file = click.option("--sql-file", "sql_file", type=SQL_PATH, help="SQL file path; - reads stdin")(
+        command_with_text
+    )
     return command_with_file
 
 
@@ -110,10 +110,7 @@ def sql_write(
     "--analyze",
     "explain_analyze",
     is_flag=True,
-    help=(
-        "execute the SELECT/WITH query with EXPLAIN ANALYZE (MySQL 8.0.18+); "
-        "supply the raw query without EXPLAIN"
-    ),
+    help=("execute the SELECT/WITH query with EXPLAIN ANALYZE (MySQL 8.0.18+); supply the raw query without EXPLAIN"),
 )
 @click.option("--timeout", "timeout_seconds", type=POSITIVE_FLOAT)
 @click.pass_context

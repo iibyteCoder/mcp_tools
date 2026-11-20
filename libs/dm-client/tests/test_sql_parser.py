@@ -121,21 +121,27 @@ def test_first_keyword_classification(text: str, statement_type: SqlStatementTyp
     parsed = DmSqlParser().parse(text)
 
     assert parsed.statement_type is statement_type
-    assert parsed.is_read_only is (statement_type in {
-        SqlStatementType.SELECT,
-        SqlStatementType.SHOW,
-        SqlStatementType.DESCRIBE,
-        SqlStatementType.EXPLAIN,
-    })
-    assert parsed.is_write is (statement_type in {
-        SqlStatementType.INSERT,
-        SqlStatementType.UPDATE,
-        SqlStatementType.DELETE,
-        SqlStatementType.MERGE,
-        SqlStatementType.DDL,
-        SqlStatementType.CALL,
-        SqlStatementType.SET,
-    })
+    assert parsed.is_read_only is (
+        statement_type
+        in {
+            SqlStatementType.SELECT,
+            SqlStatementType.SHOW,
+            SqlStatementType.DESCRIBE,
+            SqlStatementType.EXPLAIN,
+        }
+    )
+    assert parsed.is_write is (
+        statement_type
+        in {
+            SqlStatementType.INSERT,
+            SqlStatementType.UPDATE,
+            SqlStatementType.DELETE,
+            SqlStatementType.MERGE,
+            SqlStatementType.DDL,
+            SqlStatementType.CALL,
+            SqlStatementType.SET,
+        }
+    )
 
 
 @pytest.mark.parametrize(
@@ -158,8 +164,7 @@ def test_first_keyword_classification(text: str, statement_type: SqlStatementTyp
             SqlStatementType.DELETE,
         ),
         (
-            "WITH cte AS (SELECT 1 FROM DUAL) MERGE INTO t USING cte ON (1 = 1) "
-            "WHEN MATCHED THEN UPDATE SET x = 1",
+            "WITH cte AS (SELECT 1 FROM DUAL) MERGE INTO t USING cte ON (1 = 1) WHEN MATCHED THEN UPDATE SET x = 1",
             SqlStatementType.MERGE,
         ),
     ],
@@ -174,9 +179,7 @@ def test_cte_with_statement_classifies_the_main_statement(
 
 
 def test_cte_select_for_update_stays_a_locking_select() -> None:
-    parsed = DmSqlParser().parse(
-        "WITH cte AS (SELECT id FROM t) SELECT id FROM cte FOR UPDATE"
-    )
+    parsed = DmSqlParser().parse("WITH cte AS (SELECT id FROM t) SELECT id FROM cte FOR UPDATE")
 
     assert parsed.statement_type is SqlStatementType.SELECT
     assert parsed.read_effect is SqlReadEffect.LOCKING

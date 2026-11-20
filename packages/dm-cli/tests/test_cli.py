@@ -96,9 +96,7 @@ def test_profile_list_is_one_json_document(cli_environment: dict[str, str]) -> N
     assert data["profiles"] == []
 
 
-def test_profile_set_and_show_round_trip_without_password(
-    cli_environment: dict[str, str], tmp_path: Path
-) -> None:
+def test_profile_set_and_show_round_trip_without_password(cli_environment: dict[str, str], tmp_path: Path) -> None:
     created = run_cli(
         cli_environment,
         "profile",

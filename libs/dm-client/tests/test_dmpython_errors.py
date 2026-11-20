@@ -97,9 +97,7 @@ def test_unknown_failure_falls_back_to_query_error() -> None:
 
 
 def test_driver_argument_type_error_maps_to_configuration_error() -> None:
-    error = translate_configuration_error(
-        TypeError("connection_timeout : expecting an Integer value.")
-    )
+    error = translate_configuration_error(TypeError("connection_timeout : expecting an Integer value."))
 
     assert isinstance(error, ConfigurationError)
     assert isinstance(translate_driver_error(TypeError("unexpected")), QueryError)

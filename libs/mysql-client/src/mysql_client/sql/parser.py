@@ -134,9 +134,7 @@ class MySqlSqlParser:
     @staticmethod
     def _parse_one(sql: str) -> Expression:
         try:
-            expressions = tuple(
-                parse(sql, read="mysql", error_level=ErrorLevel.IMMEDIATE)
-            )
+            expressions = tuple(parse(sql, read="mysql", error_level=ErrorLevel.IMMEDIATE))
         except SqlglotError as exc:
             raise SqlParseError(
                 "SQL 语法解析失败",

@@ -182,9 +182,7 @@ async def test_session_runs_every_driver_call_on_one_worker_thread() -> None:
     recorder, connection, factory = session_parts()
 
     async with DmSession(config(), factory, "test") as session:
-        read = await session.execute_read(
-            ReadRequest(sql=SqlInput.inline("SELECT 1 AS N FROM DUAL"))
-        )
+        read = await session.execute_read(ReadRequest(sql=SqlInput.inline("SELECT 1 AS N FROM DUAL")))
         committed = await session.execute_write(
             WriteRequest(
                 sql=SqlInput.inline("INSERT INTO t (id) VALUES (?)"),
@@ -252,9 +250,7 @@ async def test_session_rejects_writes_under_read_policy_before_driver_calls() ->
     async with DmSession(config(), factory, "test") as session:
         before = len(recorder.events)
         with pytest.raises(ExecutionPolicyError):
-            await session.execute_read(
-                ReadRequest(sql=SqlInput.inline("INSERT INTO t VALUES (1)"))
-            )
+            await session.execute_read(ReadRequest(sql=SqlInput.inline("INSERT INTO t VALUES (1)")))
 
     assert "execute" not in recorder.events[before:]
 
@@ -266,9 +262,7 @@ async def test_session_rejects_parse_errors_before_driver_calls() -> None:
     async with DmSession(config(), factory, "test") as session:
         before = len(recorder.events)
         with pytest.raises(SqlParseError, match="not terminated"):
-            await session.execute_read(
-                ReadRequest(sql=SqlInput.inline("SELECT 'unterminated"))
-            )
+            await session.execute_read(ReadRequest(sql=SqlInput.inline("SELECT 'unterminated")))
 
     assert "execute" not in recorder.events[before:]
 
@@ -288,9 +282,7 @@ async def test_session_execute_explain_runs_on_the_worker_thread_without_executi
     recorder, connection, factory = session_parts()
 
     async with DmSession(config(), factory, "test") as session:
-        result = await session.execute_explain(
-            ExplainRequest(sql=SqlInput.inline("EXPLAIN SELECT 1 FROM DUAL"))
-        )
+        result = await session.execute_explain(ExplainRequest(sql=SqlInput.inline("EXPLAIN SELECT 1 FROM DUAL")))
 
     assert connection.explained == ["SELECT 1 FROM DUAL"]
     assert result.plan_text == "1   #NSET2: [1, 1, 1]"
@@ -314,9 +306,7 @@ async def test_session_rejects_explain_analyze_before_driver_calls() -> None:
     async with DmSession(config(), factory, "test") as session:
         before = len(recorder.events)
         with pytest.raises(UnsupportedSqlError):
-            await session.execute_explain(
-                ExplainRequest(sql=SqlInput.inline("EXPLAIN ANALYZE SELECT 1 FROM DUAL"))
-            )
+            await session.execute_explain(ExplainRequest(sql=SqlInput.inline("EXPLAIN ANALYZE SELECT 1 FROM DUAL")))
 
     assert "explain" not in recorder.events[before:]
 
@@ -326,9 +316,7 @@ async def test_session_execute_maintenance_commits_the_analysis_on_the_worker_th
     recorder, connection, factory = session_parts()
 
     async with DmSession(config(), factory, "test") as session:
-        result = await session.execute_maintenance(
-            SchemaAnalyzeRequest(table=TableName(value="T"))
-        )
+        result = await session.execute_maintenance(SchemaAnalyzeRequest(table=TableName(value="T")))
 
     assert result.outcome is WriteOutcome.COMMITTED
     assert result.schema == "APP"
@@ -389,9 +377,7 @@ async def test_session_rejects_benchmark_writes_before_driver_calls() -> None:
     async with DmSession(config(), factory, "test") as session:
         before = len(recorder.events)
         with pytest.raises(ExecutionPolicyError):
-            await session.execute_benchmark(
-                BenchmarkRequest(sql=SqlInput.inline("UPDATE t SET N = 1"))
-            )
+            await session.execute_benchmark(BenchmarkRequest(sql=SqlInput.inline("UPDATE t SET N = 1")))
 
     assert "execute" not in recorder.events[before:]
 
